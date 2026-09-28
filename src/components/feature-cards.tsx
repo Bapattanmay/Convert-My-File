@@ -1,0 +1,60 @@
+import { Layers3, ShieldOff, Sparkles } from "lucide-react";
+
+const FEATURES = [
+  {
+    icon: Sparkles,
+    title: "Precision tooling",
+    body: "Convert formats, translate documents, merge packs, and hit exact KB/MB targets without leaving the browser.",
+  },
+  {
+    icon: ShieldOff,
+    title: "Zero persistence",
+    body: "No accounts required for core tools. Uploads live in memory, then vanish on download or after the three-minute wipe.",
+  },
+  {
+    icon: Layers3,
+    title: "One calm surface",
+    body: "A single workspace for every file job — navy, gold, and cream — designed for focus instead of dashboard clutter.",
+  },
+];
+
+export function FeatureCards() {
+  return (
+    <section className="border-b border-[#E8E2D6] bg-[#FBF9F5]">
+      <div className="mx-auto max-w-6xl px-5 py-16 sm:px-8 sm:py-20">
+        <div className="max-w-2xl">
+          <p className="text-xs font-semibold tracking-[0.2em] text-[#C5A880]">
+            BUILT FOR DISCRETION
+          </p>
+          <h2 className="mt-3 font-[family-name:var(--font-display)] text-3xl font-bold tracking-tight text-[#0F172A] sm:text-4xl">
+            File work that leaves no footprint.
+          </h2>
+          <p className="mt-4 text-base leading-relaxed text-[#64748B]">
+            Premium Utility keeps the ritual simple: upload, shape the result,
+            preview, download — then the session erases itself.
+          </p>
+        </div>
+
+        <div className="mt-12 grid gap-5 md:grid-cols-3">
+          {FEATURES.map((feature, index) => (
+            <article
+              key={feature.title}
+              className="group rounded-[28px] border border-[#E8E2D6] bg-white p-7 shadow-[0_18px_50px_rgba(15,23,42,0.04)] transition duration-300 hover:-translate-y-1 hover:border-[#C5A880]/60 hover:shadow-[0_24px_60px_rgba(15,23,42,0.08)]"
+              style={{ animationDelay: `${index * 80}ms` }}
+            >
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#0F172A] text-[#D4AF37] transition group-hover:scale-105">
+                <feature.icon className="h-5 w-5" strokeWidth={1.75} />
+              </div>
+              <h3 className="mt-6 font-[family-name:var(--font-display)] text-xl font-semibold text-[#0F172A]">
+                {feature.title}
+              </h3>
+              <p className="mt-3 text-sm leading-relaxed text-[#64748B]">
+                {feature.body}
+              </p>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
