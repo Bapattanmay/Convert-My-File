@@ -29,6 +29,7 @@ export function ConverterTool() {
   const { startWipeTimer, markDownloaded } = useWipeTimer();
   const [file, setFile] = useState<File | null>(null);
   const [target, setTarget] = useState<string>("pdf");
+  const [quickTag, setQuickTag] = useState<string>("JPG → PDF");
   const [preview, setPreview] = useState("");
   const [progress, setProgress] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -143,9 +144,12 @@ export function ConverterTool() {
             <button
               key={tag.label}
               type="button"
-              onClick={() => setTarget(tag.to)}
+              onClick={() => {
+                setQuickTag(tag.label);
+                setTarget(tag.to);
+              }}
               className={`rounded-full px-3 py-1.5 text-xs font-semibold tracking-wide transition ${
-                target === tag.to
+                quickTag === tag.label
                   ? "bg-[#0F172A] text-[#D4AF37]"
                   : "bg-white text-[#475569] ring-1 ring-[#E8E2D6] hover:ring-[#C5A880]"
               }`}
@@ -165,7 +169,11 @@ export function ConverterTool() {
             <button
               key={fmt}
               type="button"
-              onClick={() => setTarget(fmt)}
+              onClick={() => {
+                setTarget(fmt);
+                const match = QUICK_TAGS.find((t) => t.to === fmt);
+                setQuickTag(match?.label ?? "");
+              }}
               className={`rounded-full px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wide ${
                 target === fmt
                   ? "bg-[#101828] text-white"
