@@ -34,3 +34,8 @@ Open [http://127.0.0.1:43127](http://127.0.0.1:43127).
 | `npm run build` | Production build |
 | `npm run start` | Start production server |
 | `npm run lint` | ESLint |
+| `npm run test:e2e` | Playwright end-to-end QA (requires `npm run dev`) |
+
+## Deploy (Render)
+
+`render.yaml` defines a Node web service (`npm run build` → `next start`). Connect a GitHub repo to Render and apply the Blueprint, or use the Render CLI with `RENDER_API_KEY`.

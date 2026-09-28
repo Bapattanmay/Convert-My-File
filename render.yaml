@@ -1,0 +1,16 @@
+# Render Blueprint — Premium Utility (Next.js web service)
+# Requires: GitHub/GitLab repo connected to Render + RENDER_API_KEY for CLI deploys
+services:
+  - type: web
+    name: premium-utility
+    runtime: node
+    plan: free
+    region: oregon
+    buildCommand: npm install && npm run build
+    startCommand: npm run start -- --hostname 0.0.0.0 --port $PORT
+    healthCheckPath: /
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
