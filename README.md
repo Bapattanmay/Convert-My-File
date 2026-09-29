@@ -28,6 +28,12 @@ Open [http://127.0.0.1:43127](http://127.0.0.1:43127).
 | `NEXTAUTH_URL` / `AUTH_URL` | Canonical URL |
 | `ADMIN_EMAILS` | Comma-separated Google emails allowed at `/admin` (default includes `bapattanmay@gmail.com`) |
 | `DATA_DIR` | Analytics JSON directory |
+| `MYMEMORY_EMAIL` | Optional — raises MyMemory free-tier quota for Translator |
+| `GOOGLE_TRANSLATE_API_KEY` | Optional — use Google Cloud Translation instead of MyMemory |
+
+### Translator
+
+Client extracts text from Word/PDF/Excel, then `POST /api/translate` calls **MyMemory** (no key) or **Google Cloud Translation** when `GOOGLE_TRANSLATE_API_KEY` is set. Free MyMemory limits apply (~500 chars/chunk, daily quota); long docs are truncated for preview. Preview and download are real target-language text (e.g. Devanagari for Hindi), not English stubs.
 
 ### Admin access
 

@@ -22,6 +22,30 @@ import {
   sleep,
 } from "@/lib/file-utils";
 
+async function extractSourceText(file: File, max = 4000): Promise<string> {
+  const name = file.name.toLowerCase();
+  if (name.endsWith(".docx") || name.endsWith(".doc")) {
+    const { extractDocxContent } = await import("@/lib/office-extract");
+    const { text } = await extractDocxContent(file);
+    return text.slice(0, max);
+  }
+  if (name.endsWith(".pdf")) {
+    const { extractPdfBlocks, blocksToPlainText } = await import(
+      "@/lib/pdf-extract"
+    );
+    const blocks = await extractPdfBlocks(file);
+    return blocksToPlainText(blocks).slice(0, max);
+  }
+  if (name.endsWith(".xlsx") || name.endsWith(".xls")) {
+    const XLSX = await import("xlsx");
+    const wb = XLSX.read(await file.arrayBuffer(), { type: "array" });
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    const csv = sheet ? XLSX.utils.sheet_to_csv(sheet) : "";
+    return (csv || (await readAsTextPreview(file))).slice(0, max);
+  }
+  return (await readAsTextPreview(file)).slice(0, max);
+}
+
 export function TranslatorTool() {
   const inputRef = useRef<HTMLInputElement>(null);
   const { startWipeTimer, markDownloaded } = useWipeTimer();
@@ -33,6 +57,7 @@ export function TranslatorTool() {
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<Blob | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [providerNote, setProviderNote] = useState<string | null>(null);
 
   const india = useMemo(
     () => TRANSLATOR_LANGUAGES.filter((l) => l.region === "India"),
@@ -52,34 +77,14 @@ export function TranslatorTool() {
       setError(null);
       setResult(null);
       setTranslatedPreview("");
+      setProviderNote(null);
       setFile(picked);
       startWipeTimer();
       try {
-        const name = picked.name.toLowerCase();
-        if (name.endsWith(".docx") || name.endsWith(".doc")) {
-          const { extractDocxContent } = await import("@/lib/office-extract");
-          const { text } = await extractDocxContent(picked);
-          setSourcePreview(text.slice(0, 2000));
-        } else if (name.endsWith(".pdf")) {
-          const { extractPdfBlocks, blocksToPlainText } = await import(
-            "@/lib/pdf-extract"
-          );
-          const blocks = await extractPdfBlocks(picked);
-          setSourcePreview(blocksToPlainText(blocks).slice(0, 2000));
-        } else if (name.endsWith(".xlsx") || name.endsWith(".xls")) {
-          const XLSX = await import("xlsx");
-          const wb = XLSX.read(await picked.arrayBuffer(), { type: "array" });
-          const sheet = wb.Sheets[wb.SheetNames[0]];
-          const csv = sheet ? XLSX.utils.sheet_to_csv(sheet) : "";
-          setSourcePreview(csv.slice(0, 2000) || (await readAsTextPreview(picked)));
-        } else {
-          setSourcePreview(await readAsTextPreview(picked));
-        }
+        setSourcePreview(await extractSourceText(picked, 2000));
       } catch (e) {
         setSourcePreview(
-          e instanceof Error
-            ? e.message
-            : await readAsTextPreview(picked)
+          e instanceof Error ? e.message : await readAsTextPreview(picked)
         );
       }
     },
@@ -93,41 +98,78 @@ export function TranslatorTool() {
     }
     setBusy(true);
     setError(null);
+    setProviderNote(null);
+    setProgress(15);
     try {
-      for (const step of [20, 45, 70, 90, 100]) {
-        setProgress(step);
-        await sleep(160);
-      }
       let sample = sourcePreview;
       if (!sample || sample.startsWith("Binary preview")) {
-        const name = file.name.toLowerCase();
-        if (name.endsWith(".docx") || name.endsWith(".doc")) {
-          const { extractDocxContent } = await import("@/lib/office-extract");
-          sample = (await extractDocxContent(file)).text.slice(0, 800);
-        } else if (name.endsWith(".pdf")) {
-          const { extractPdfBlocks, blocksToPlainText } = await import(
-            "@/lib/pdf-extract"
-          );
-          sample = blocksToPlainText(await extractPdfBlocks(file)).slice(0, 800);
-        } else {
-          sample = `Document "${file.name}" prepared for ${selectedLabel} output.`;
-        }
+        sample = await extractSourceText(file, 3500);
+        setSourcePreview(sample.slice(0, 2000));
       }
-      sample = sample.slice(0, 800);
-      const preview = `[${selectedLabel} preview]\n\n${sample
-        .split(/\s+/)
-        .map((w, i) => (i % 7 === 0 ? `⟦${w}⟧` : w))
-        .join(" ")}\n\n— End of bilingual preview —`;
+      sample = sample.trim();
+      if (!sample) {
+        throw new Error("Could not extract readable text from this file.");
+      }
+
+      setProgress(40);
+      await sleep(80);
+
+      const res = await fetch("/api/translate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: sample.slice(0, 3500),
+          target: language,
+          source: "en",
+        }),
+      });
+      setProgress(85);
+      const data = (await res.json()) as {
+        translatedText?: string;
+        error?: string;
+        provider?: string;
+        note?: string;
+        truncated?: boolean;
+      };
+      if (!res.ok || !data.translatedText) {
+        throw new Error(data.error || "Translation service failed.");
+      }
+
+      const translated = data.translatedText.trim();
+      // Guard against leftover stub patterns
+      if (/⟦|⟧|\[\[.*\]\]/.test(translated) && !/[\u0900-\u097F]/.test(translated)) {
+        throw new Error("Translation returned a stub — try again.");
+      }
+
+      const header = `${selectedLabel} translation`;
+      const preview = `${header}\n\n${translated}`;
       setTranslatedPreview(preview);
+      setProviderNote(
+        [
+          data.provider ? `Provider: ${data.provider}` : null,
+          data.note || null,
+          data.truncated ? "Source was truncated for free-tier limits." : null,
+        ]
+          .filter(Boolean)
+          .join(" · ")
+      );
+
       const blob = new Blob(
         [
-          `Convert My File Translation\nLanguage: ${selectedLabel}\nSource: ${file.name}\n\n${preview}\n`,
+          `Convert My File Translation\nLanguage: ${selectedLabel}\nSource: ${file.name}\nProvider: ${data.provider || "unknown"}\n\n${translated}\n`,
         ],
         { type: "text/plain;charset=utf-8" }
       );
       setResult(blob);
-    } catch {
-      setError("Translation preview failed. Try another document.");
+      setProgress(100);
+    } catch (e) {
+      setError(
+        e instanceof Error
+          ? e.message
+          : "Translation failed. Try another document or language."
+      );
+      setTranslatedPreview("");
+      setResult(null);
     } finally {
       setBusy(false);
     }
@@ -148,7 +190,9 @@ export function TranslatorTool() {
             Document Translator
           </h3>
           <p className="mt-1 text-sm text-[#64748B]">
-            Top 50 India + top 50 world languages. Preview before download.
+            Real translation into {TRANSLATOR_LANGUAGES.length} languages via
+            MyMemory (free) or Google Translate when an API key is configured.
+            Free tier caps long documents; preview first.
           </p>
           <button
             type="button"
@@ -216,9 +260,12 @@ export function TranslatorTool() {
           <div className="mt-2 min-h-[140px] rounded-[18px] bg-[#0F172A] p-3 font-mono text-xs text-[#CBD5E1]">
             <pre className="whitespace-pre-wrap">
               {translatedPreview ||
-                "Run translate to generate a bilingual preview before download."}
+                "Run translate to generate a real-language preview before download."}
             </pre>
           </div>
+          {providerNote ? (
+            <p className="mt-2 text-[11px] text-[#94A3B8]">{providerNote}</p>
+          ) : null}
         </div>
       </div>
 
@@ -237,7 +284,7 @@ export function TranslatorTool() {
       <div className="flex flex-wrap gap-3">
         <Button
           onClick={() => void translate()}
-          disabled={busy}
+          disabled={busy || !file}
           className="rounded-full bg-[#0F172A] text-white hover:bg-[#1E293B]"
         >
           {busy ? (
