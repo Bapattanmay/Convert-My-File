@@ -310,28 +310,38 @@ async function main() {
     row(matrix, "Translator", "input", accepted > 0 && /not supported/i.test(tRej || ""), `exe rejected; docx chip=${accepted}`);
 
     await page.getByRole("button", { name: /Translate & preview/i }).click();
+    await page.waitForTimeout(2000);
     await page.waitForFunction(() => {
       const t = document.body.innerText;
-      return /Provider:|MyMemory|Google|translation/i.test(t);
+      const alert = document.querySelector("#tools [role='alert']");
+      if (alert && /429|failed|error/i.test(alert.textContent || "")) return true;
+      return /Provider:|MyMemory|Google/i.test(t);
     }, { timeout: 90000 }).catch(() => {});
-    await page.waitForTimeout(1500);
+    await page.waitForTimeout(1000);
     const body = await page.locator("#tools").innerText();
-    const processOk = /Provider:|MyMemory|Google|Translated|Download/i.test(body) && !/Translation service failed/i.test(body);
-    row(matrix, "Translator", "process", processOk, processOk ? "translate finished" : body.slice(0, 120));
+    const alert = await page.locator("#tools [role='alert']").textContent().catch(() => "");
+    const processOk =
+      !/429|Translation service failed/i.test(alert || "") &&
+      !/429|Translation service failed/i.test(body) &&
+      /Provider:|MyMemory|Google|Translated Preview/i.test(body);
+    row(matrix, "Translator", "process", processOk, processOk ? "translate finished" : (alert || body).slice(0, 120));
     const previews = await page.locator("#tools pre").allTextContents().catch(() => []);
-    const joined = (previews || []).join("\n") + "\n" + body;
-    // Hindi/Devanagari or non-identical output
+    const joined = (previews || []).join("\n");
+    // Require real target script or clear non-English translated body (not the placeholder)
     const previewOk =
       /[\u0900-\u097F]/.test(joined) ||
-      (/Translated Preview|translation/i.test(joined) && joined.length > 80);
-    row(matrix, "Translator", "preview", previewOk, previewOk ? "preview present" : joined.slice(0, 100));
+      (/Translated Preview/i.test(body) &&
+        joined.length > 40 &&
+        !/Run translate to generate/i.test(joined) &&
+        !/Click Convert|Hello world\. Platform quality depends/.test(joined));
+    row(matrix, "Translator", "preview", previewOk, previewOk ? "translated preview present" : joined.slice(0, 100));
 
     const hasDl = await page.getByRole("button", { name: /Download/i }).isVisible().catch(() => false);
     if (hasDl) {
       const out = await downloadClick(page, /Download/i, path.join(OUT, `${LABEL}matrix-translator-out.bin`));
       row(matrix, "Translator", "output", out.length > 20, `download ${out.length}b`);
     } else {
-      row(matrix, "Translator", "output", previewOk, "preview-only fallback (no download btn)");
+      row(matrix, "Translator", "output", previewOk, previewOk ? "preview ready (download optional)" : "no download / no preview");
     }
     await page.screenshot({ path: path.join(OUT, `${LABEL}matrix-translator.png`) });
   } catch (e) {
