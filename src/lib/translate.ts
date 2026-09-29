@@ -131,25 +131,41 @@ async function translateMyMemory(
   const email = process.env.MYMEMORY_EMAIL;
   if (email) url.searchParams.set("de", email);
 
-  const res = await fetch(url.toString(), {
-    headers: { Accept: "application/json" },
-    next: { revalidate: 0 },
-  });
-  if (!res.ok) {
-    throw new Error(`MyMemory HTTP ${res.status}`);
+  let lastErr: Error | null = null;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    if (attempt > 0) {
+      await new Promise((r) => setTimeout(r, 800 * Math.pow(2, attempt - 1)));
+    }
+    const res = await fetch(url.toString(), {
+      headers: { Accept: "application/json" },
+      next: { revalidate: 0 },
+    });
+    if (res.status === 429) {
+      lastErr = new Error(`MyMemory HTTP 429`);
+      continue;
+    }
+    if (!res.ok) {
+      throw new Error(`MyMemory HTTP ${res.status}`);
+    }
+    const data = (await res.json()) as {
+      responseStatus?: number | string;
+      responseData?: { translatedText?: string };
+      responseDetails?: string;
+    };
+    const status = Number(data.responseStatus);
+    // MyMemory sometimes returns 429 in responseStatus with HTTP 200
+    if (status === 429) {
+      lastErr = new Error(`MyMemory HTTP 429`);
+      continue;
+    }
+    if (status !== 200 || !data.responseData?.translatedText) {
+      throw new Error(
+        data.responseDetails || `MyMemory failed (status ${data.responseStatus})`
+      );
+    }
+    return data.responseData.translatedText;
   }
-  const data = (await res.json()) as {
-    responseStatus?: number | string;
-    responseData?: { translatedText?: string };
-    responseDetails?: string;
-  };
-  const status = Number(data.responseStatus);
-  if (status !== 200 || !data.responseData?.translatedText) {
-    throw new Error(
-      data.responseDetails || `MyMemory failed (status ${data.responseStatus})`
-    );
-  }
-  return data.responseData.translatedText;
+  throw lastErr || new Error("MyMemory failed after retries");
 }
 
 async function translateGoogleOfficial(

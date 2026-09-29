@@ -48,6 +48,10 @@ export async function translateToManyLanguages(
   const results: LangBatchResult[] = [];
   for (let i = 0; i < langs.length; i++) {
     const lang = langs[i];
+    // Pace MyMemory free-tier to reduce 429s between languages
+    if (i > 0) {
+      await new Promise((r) => setTimeout(r, 1200));
+    }
     try {
       const { text } = await translateOnce(sourceText, lang.code);
       results.push({ code: lang.code, label: lang.label, text, ok: true });

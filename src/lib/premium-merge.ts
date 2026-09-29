@@ -166,11 +166,11 @@ export async function addDigitalSignature(
       color: rgb(0.25, 0.3, 0.35),
     });
   }
-  // Subtle rotation mark so it reads as a signature field
-  page.drawText("✓", {
-    x: x + boxW - 28,
+  // Use ASCII-only mark — StandardFonts.Helvetica is WinAnsi and cannot encode ✓
+  page.drawText("OK", {
+    x: x + boxW - 36,
     y: y + boxH / 2 - 6,
-    size: 18,
+    size: 14,
     font,
     color: rgb(0.1, 0.45, 0.25),
     rotate: degrees(-8),

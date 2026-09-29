@@ -421,6 +421,7 @@ function PdfEditorPanel() {
           type="file"
           accept=".pdf,application/pdf"
           className="hidden"
+          data-testid="premium-pdf-open"
           onChange={(e) => {
             void openPdf(e.target.files?.[0] || null);
             e.target.value = "";
@@ -452,6 +453,7 @@ function PdfEditorPanel() {
           type="file"
           accept=".docx,.doc"
           className="hidden"
+          data-testid="premium-pdf-import-docx"
           onChange={(e) => {
             void fromEditedDocx(e.target.files?.[0] || null);
             e.target.value = "";
@@ -655,6 +657,7 @@ function MultiLangPanel() {
           <Button
             variant="outline"
             className="rounded-full border-[#C5A880]"
+            data-testid="premium-5lang-download"
             onClick={() => {
               downloadBlob(zip, "translations-pack.zip");
               markDownloaded();
@@ -873,6 +876,7 @@ function PageMergePanel() {
           <Button
             variant="outline"
             className="rounded-full border-[#C5A880]"
+            data-testid="premium-page-range-download"
             onClick={() => {
               downloadBlob(result, "page-range-merge.pdf");
               markDownloaded();
@@ -960,6 +964,7 @@ function MergeCompressPanel() {
           <Label className="text-xs">Target KB</Label>
           <Input
             className="mt-1 w-28"
+            data-testid="premium-merge-compress-kb"
             value={kb}
             onChange={(e) => setKb(e.target.value)}
           />
@@ -976,6 +981,7 @@ function MergeCompressPanel() {
           <Button
             variant="outline"
             className="rounded-full border-[#C5A880]"
+            data-testid="premium-merge-compress-download"
             onClick={() => {
               downloadBlob(result, `merged-${kb}kb.pdf`);
               markDownloaded();
@@ -1326,6 +1332,7 @@ function MediaPanel() {
           <Label className="text-xs">Target MB</Label>
           <Input
             className="mt-1 w-28"
+            data-testid="premium-media-mb"
             value={mb}
             onChange={(e) => setMb(e.target.value)}
           />
@@ -1342,6 +1349,7 @@ function MediaPanel() {
           <Button
             variant="outline"
             className="rounded-full border-[#C5A880]"
+            data-testid="premium-media-download"
             onClick={() => {
               const ext = file?.name.includes(".")
                 ? file.name.slice(file.name.lastIndexOf("."))
