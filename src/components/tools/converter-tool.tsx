@@ -1,40 +1,75 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { FileUp, Loader2, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useWipeTimer } from "@/components/wipe-provider";
+import { downloadBlob, formatBytes, sleep } from "@/lib/file-utils";
 import {
-  downloadBlob,
-  formatBytes,
-  guessOutputMime,
-  readAsTextPreview,
-  resizeToExactBytes,
-  sleep,
-} from "@/lib/file-utils";
+  OUTPUT_FORMATS,
+  type FormatId,
+  acceptAttribute,
+  convertFile,
+  detectFormat,
+  formatLabel,
+  isConversionSupported,
+  unsupportedConversionMessage,
+  unsupportedFileMessage,
+} from "@/lib/convert";
 
-const QUICK_TAGS = [
+const QUICK_TAGS: { label: string; from: FormatId; to: FormatId }[] = [
   { label: "PDF → DOC", from: "pdf", to: "docx" },
   { label: "JPG → PDF", from: "jpg", to: "pdf" },
   { label: "PNG → JPG", from: "png", to: "jpg" },
   { label: "DOC → PDF", from: "docx", to: "pdf" },
   { label: "TXT → PDF", from: "txt", to: "pdf" },
-] as const;
-
-const FORMATS = ["pdf", "docx", "doc", "jpg", "png", "txt", "xlsx"] as const;
+  { label: "XLSX → CSV", from: "xlsx", to: "csv" },
+];
 
 export function ConverterTool() {
   const inputRef = useRef<HTMLInputElement>(null);
   const { startWipeTimer, markDownloaded } = useWipeTimer();
   const [file, setFile] = useState<File | null>(null);
-  const [target, setTarget] = useState<string>("pdf");
-  const [quickTag, setQuickTag] = useState<string>("JPG → PDF");
-  const [preview, setPreview] = useState("");
+  const [sourceFormat, setSourceFormat] = useState<FormatId | null>(null);
+  const [target, setTarget] = useState<FormatId>("jpg");
+  const [quickTag, setQuickTag] = useState<string>("PNG → JPG");
+  const [previewText, setPreviewText] = useState("");
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewKind, setPreviewKind] = useState<"image" | "text" | "pdf" | null>(
+    null
+  );
   const [progress, setProgress] = useState(0);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<Blob | null>(null);
+  const [resultExt, setResultExt] = useState("bin");
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
+
+  const clearPreview = useCallback(() => {
+    setPreviewUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+    setPreviewText("");
+    setPreviewKind(null);
+  }, []);
+
+  const validatePair = useCallback(
+    (from: FormatId | null, to: FormatId): string | null => {
+      if (!from) return null;
+      if (!isConversionSupported(from, to)) {
+        return unsupportedConversionMessage(from, to);
+      }
+      return null;
+    },
+    []
+  );
 
   const onPick = useCallback(
     async (picked: File | null) => {
@@ -42,46 +77,115 @@ export function ConverterTool() {
       setError(null);
       setResult(null);
       setProgress(0);
+      clearPreview();
+
+      const detected = detectFormat(picked);
+      if (!detected) {
+        setFile(null);
+        setSourceFormat(null);
+        setError(unsupportedFileMessage(picked.name));
+        if (inputRef.current) inputRef.current.value = "";
+        return;
+      }
+
+      const pairErr = validatePair(detected, target);
+      if (pairErr) {
+        setFile(null);
+        setSourceFormat(null);
+        setError(pairErr);
+        if (inputRef.current) inputRef.current.value = "";
+        return;
+      }
+
       setFile(picked);
+      setSourceFormat(detected);
       startWipeTimer();
-      setPreview(await readAsTextPreview(picked));
+
+      // Source hint before convert — output preview appears after convert
+      if (
+        detected === "jpg" ||
+        detected === "png" ||
+        detected === "webp" ||
+        detected === "gif"
+      ) {
+        setPreviewKind("image");
+        setPreviewText(
+          `Source: ${picked.name} (${formatLabel(detected)})\nTarget: ${formatLabel(target)}\n\nClick Convert to generate the output preview.`
+        );
+        const url = URL.createObjectURL(picked);
+        setPreviewUrl(url);
+      } else {
+        setPreviewKind("text");
+        setPreviewText(
+          `Source: ${picked.name} (${formatLabel(detected)})\nTarget: ${formatLabel(target)}\nSize: ${formatBytes(picked.size)}\n\nClick Convert to generate the output preview.`
+        );
+      }
     },
-    [startWipeTimer]
+    [clearPreview, startWipeTimer, target, validatePair]
   );
 
+  const selectTarget = (fmt: FormatId, tagLabel = "") => {
+    setTarget(fmt);
+    setQuickTag(tagLabel);
+    setResult(null);
+    clearPreview();
+    setError(null);
+
+    if (file && sourceFormat) {
+      const pairErr = validatePair(sourceFormat, fmt);
+      if (pairErr) {
+        setError(pairErr);
+        setFile(null);
+        setSourceFormat(null);
+        if (inputRef.current) inputRef.current.value = "";
+        return;
+      }
+      setPreviewKind(
+        ["jpg", "png", "webp", "gif"].includes(sourceFormat) ? "image" : "text"
+      );
+      setPreviewText(
+        `Source: ${file.name} (${formatLabel(sourceFormat)})\nTarget: ${formatLabel(fmt)}\nSize: ${formatBytes(file.size)}\n\nClick Convert to generate the output preview.`
+      );
+      if (["jpg", "png", "webp", "gif"].includes(sourceFormat)) {
+        setPreviewUrl(URL.createObjectURL(file));
+      }
+    }
+  };
+
   const convert = async () => {
-    if (!file) {
-      setError("Upload a file to convert.");
+    if (!file || !sourceFormat) {
+      setError("Upload a supported file to convert.");
       return;
     }
+    const pairErr = validatePair(sourceFormat, target);
+    if (pairErr) {
+      setError(pairErr);
+      return;
+    }
+
     setBusy(true);
     setError(null);
     setResult(null);
+    clearPreview();
     try {
-      for (const step of [18, 42, 68, 88, 100]) {
+      for (const step of [20, 45, 70, 90]) {
         setProgress(step);
-        await sleep(180);
+        await sleep(120);
       }
-      const buf = await file.arrayBuffer();
-      // Keep roughly original size with a small header stamp for realism
-      const stamped = new Uint8Array(buf.byteLength + 64);
-      const header = new TextEncoder().encode(
-        `PREMIUM-UTILITY|CONVERT|${target}|`
+      const out = await convertFile(file, sourceFormat, target);
+      setProgress(100);
+      setResult(out.blob);
+      setResultExt(out.filenameExt);
+      setPreviewKind(out.previewKind);
+      if (out.previewUrl) setPreviewUrl(out.previewUrl);
+      setPreviewText(
+        out.previewText ??
+          `Output: ${formatLabel(target)} · ${formatBytes(out.blob.size)}`
       );
-      stamped.set(header.subarray(0, 64));
-      stamped.set(new Uint8Array(buf), 64);
-      const mime = guessOutputMime(target);
-      const blob = await resizeToExactBytes(
-        stamped,
-        Math.max(stamped.length, 256),
-        mime
-      );
-      setResult(blob);
-      setPreview(
-        `Conversion complete\n\nSource: ${file.name}\nTarget format: ${target.toUpperCase()}\nOutput size: ${formatBytes(blob.size)}\n\nPreview ready — download to keep your file before the wipe timer ends.`
-      );
-    } catch {
-      setError("Conversion failed. Try another file or format.");
+    } catch (e) {
+      const msg =
+        e instanceof Error ? e.message : "Conversion failed. Try another format.";
+      setError(msg);
     } finally {
       setBusy(false);
     }
@@ -90,9 +194,13 @@ export function ConverterTool() {
   const download = () => {
     if (!result || !file) return;
     const base = file.name.replace(/\.[^.]+$/, "");
-    downloadBlob(result, `${base}.${target === "doc" ? "doc" : target}`);
+    downloadBlob(result, `${base}.${resultExt}`);
     markDownloaded();
   };
+
+  const availableOutputs = sourceFormat
+    ? OUTPUT_FORMATS.filter((f) => isConversionSupported(sourceFormat, f))
+    : OUTPUT_FORMATS;
 
   return (
     <div className="grid gap-5 lg:grid-cols-2">
@@ -103,7 +211,7 @@ export function ConverterTool() {
               Smart Converter
             </h3>
             <p className="mt-1 text-sm text-[#64748B]">
-              Upload on the left. Preview and parameters on the right.
+              Upload on the left. Output preview on the right.
             </p>
           </div>
         </div>
@@ -123,11 +231,11 @@ export function ConverterTool() {
             Drop a file or click to upload
           </p>
           <p className="mt-1 text-xs text-[#94A3B8]">
-            PDF, Word, images, TXT, Excel
+            PDF, Word, Excel, CSV, TXT, JPG, PNG, WEBP, GIF
           </p>
-          {file ? (
+          {file && sourceFormat ? (
             <p className="mt-4 rounded-full bg-[#0F172A] px-3 py-1 text-xs font-medium text-[#D4AF37]">
-              {file.name} · {formatBytes(file.size)}
+              {file.name} · {formatLabel(sourceFormat)} · {formatBytes(file.size)}
             </p>
           ) : null}
         </button>
@@ -135,8 +243,11 @@ export function ConverterTool() {
           ref={inputRef}
           type="file"
           className="hidden"
-          accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.webp,.xlsx,.xls"
-          onChange={(e) => void onPick(e.target.files?.[0] ?? null)}
+          accept={acceptAttribute()}
+          onChange={(e) => {
+            void onPick(e.target.files?.[0] ?? null);
+            e.target.value = "";
+          }}
         />
 
         <div className="mt-5 flex flex-wrap gap-2">
@@ -144,10 +255,7 @@ export function ConverterTool() {
             <button
               key={tag.label}
               type="button"
-              onClick={() => {
-                setQuickTag(tag.label);
-                setTarget(tag.to);
-              }}
+              onClick={() => selectTarget(tag.to, tag.label)}
               className={`rounded-full px-3 py-1.5 text-xs font-semibold tracking-wide transition ${
                 quickTag === tag.label
                   ? "bg-[#0F172A] text-[#D4AF37]"
@@ -165,30 +273,66 @@ export function ConverterTool() {
           OUTPUT FORMAT
         </label>
         <div className="mt-3 flex flex-wrap gap-2">
-          {FORMATS.map((fmt) => (
-            <button
-              key={fmt}
-              type="button"
-              onClick={() => {
-                setTarget(fmt);
-                const match = QUICK_TAGS.find((t) => t.to === fmt);
-                setQuickTag(match?.label ?? "");
-              }}
-              className={`rounded-full px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wide ${
-                target === fmt
-                  ? "bg-[#101828] text-white"
-                  : "bg-[#F7F4EE] text-[#475569]"
-              }`}
-            >
-              {fmt}
-            </button>
-          ))}
+          {OUTPUT_FORMATS.map((fmt) => {
+            const allowed = !sourceFormat || isConversionSupported(sourceFormat, fmt);
+            return (
+              <button
+                key={fmt}
+                type="button"
+                disabled={!allowed}
+                title={
+                  allowed
+                    ? undefined
+                    : unsupportedConversionMessage(sourceFormat!, fmt)
+                }
+                onClick={() => {
+                  if (!allowed) return;
+                  selectTarget(fmt);
+                }}
+                className={`rounded-full px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wide ${
+                  target === fmt
+                    ? "bg-[#101828] text-white"
+                    : allowed
+                      ? "bg-[#F7F4EE] text-[#475569]"
+                      : "cursor-not-allowed bg-[#F1EFEA] text-[#C4BDB0] line-through"
+                }`}
+              >
+                {fmt}
+              </button>
+            );
+          })}
         </div>
+        {sourceFormat ? (
+          <p className="mt-2 text-xs text-[#94A3B8]">
+            From {formatLabel(sourceFormat)} → available:{" "}
+            {availableOutputs.map(formatLabel).join(", ")}
+          </p>
+        ) : null}
 
-        <div className="mt-5 min-h-[180px] rounded-[20px] bg-[#0F172A] p-4 font-mono text-xs leading-relaxed text-[#CBD5E1]">
-          <pre className="whitespace-pre-wrap">
-            {preview || "Preview will appear here after upload."}
-          </pre>
+        <div className="mt-5 min-h-[200px] overflow-hidden rounded-[20px] bg-[#0F172A] p-4 text-xs leading-relaxed text-[#CBD5E1]">
+          {previewKind === "image" && previewUrl ? (
+            <div className="flex flex-col gap-3">
+              <p className="font-semibold tracking-wide text-[#D4AF37]">
+                OUTPUT PREVIEW · {formatLabel(target)}
+              </p>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={previewUrl}
+                alt="Converted output preview"
+                className="max-h-56 w-full rounded-xl object-contain bg-[#101828]"
+              />
+              {previewText ? (
+                <pre className="whitespace-pre-wrap font-mono text-[11px] text-[#94A3B8]">
+                  {previewText}
+                </pre>
+              ) : null}
+            </div>
+          ) : (
+            <pre className="whitespace-pre-wrap font-mono">
+              {previewText ||
+                "Output preview will appear here after a successful conversion."}
+            </pre>
+          )}
         </div>
 
         {busy ? (
@@ -207,7 +351,7 @@ export function ConverterTool() {
         <div className="mt-5 flex flex-wrap gap-3">
           <Button
             onClick={() => void convert()}
-            disabled={busy}
+            disabled={busy || !file}
             className="rounded-full bg-[#0F172A] px-5 text-white hover:bg-[#1E293B]"
           >
             {busy ? (
@@ -224,7 +368,7 @@ export function ConverterTool() {
               variant="outline"
               className="rounded-full border-[#C5A880] text-[#0F172A]"
             >
-              <Download /> Download result
+              <Download /> Download .{resultExt}
             </Button>
           ) : null}
         </div>
