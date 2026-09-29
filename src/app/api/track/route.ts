@@ -57,7 +57,7 @@ export async function POST(req: Request) {
     };
   }
 
-  const updated = touchSession(token.sid, {
+  const updated = await touchSession(token.sid, {
     feature: body?.feature,
     addSeconds:
       typeof body?.seconds === "number" && body.seconds > 0

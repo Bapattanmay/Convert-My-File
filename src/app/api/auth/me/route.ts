@@ -11,7 +11,7 @@ export async function GET() {
       googleConfigured: isGoogleConfigured(),
     });
   }
-  const session = getSession(token.sid);
+  const session = await getSession(token.sid);
   if (!session) {
     return NextResponse.json({
       user: null,

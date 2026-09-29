@@ -53,7 +53,7 @@ export const authConfig = {
             ? (profile as { picture: string }).picture
             : user?.image) || undefined;
 
-        const usage = upsertGoogleSession({
+        const usage = await upsertGoogleSession({
           googleSub,
           name,
           email,

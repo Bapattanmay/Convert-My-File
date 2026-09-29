@@ -25,6 +25,8 @@ services:
         value: https://convert-my-file-oo3r.onrender.com
       - key: DATA_DIR
         value: /opt/render/project/src/data
-      # Set in Render dashboard / API:
-      # GOOGLE_CLIENT_ID
-      # GOOGLE_CLIENT_SECRET
+      # Durable analytics (preferred): set DATABASE_URL to a Render Postgres
+      # connection string in the dashboard/API. Survives web redeploys.
+      # Optional: attach a persistent disk and point DATA_DIR at the mount
+      # when on a paid web plan (free web cannot attach disks).
+      # GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET — set in dashboard

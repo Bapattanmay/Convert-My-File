@@ -7,7 +7,7 @@ Secure, ephemeral file workspace for convert, translate, merge, and exact-size c
 - Next.js (App Router) + TypeScript
 - Tailwind CSS + shadcn/ui
 - Auth.js (NextAuth v5) Google OAuth
-- Analytics JSON store (visitors / sessions / feature_events / admin_audit)
+- Durable admin analytics (Postgres JSONB when `DATABASE_URL` is set; JSON file fallback under `DATA_DIR`)
 
 ## Run locally
 
@@ -27,9 +27,19 @@ Open [http://127.0.0.1:43127](http://127.0.0.1:43127).
 | `AUTH_SECRET` / `NEXTAUTH_SECRET` | Auth.js signing |
 | `NEXTAUTH_URL` / `AUTH_URL` | Canonical URL |
 | `ADMIN_EMAILS` | Comma-separated Google emails allowed at `/admin` (default includes `bapattanmay@gmail.com`) |
-| `DATA_DIR` | Analytics JSON directory |
+| `DATA_DIR` | Analytics JSON directory (file fallback / mirror) |
+| `DATABASE_URL` | **Preferred** Postgres URL for durable admin analytics (survives web redeploys) |
+| `DATABASE_SSL` | Set `0` to disable TLS (default: TLS on) |
 | `MYMEMORY_EMAIL` | Optional — raises MyMemory free-tier quota for Translator |
 | `GOOGLE_TRANSLATE_API_KEY` | Optional — use Google Cloud Translation instead of MyMemory |
+
+### Admin analytics persistence
+
+Visitor/session/feature/audit data is stored as JSONB in Postgres when `DATABASE_URL` is set. Boot **never** drops existing rows — it only `CREATE TABLE IF NOT EXISTS` and upserts. If Postgres is empty but a local `analytics-store.json` exists, that file is migrated once into Postgres.
+
+On Render **free** web services, local disk is ephemeral and persistent disks are unavailable. Use a Render Postgres database and set `DATABASE_URL` to the **internal** connection string. Paid web plans can also attach a disk at `DATA_DIR`.
+
+Free Render Postgres instances expire ~30 days after creation — upgrade the DB plan before expiry for long-term retention.
 
 ### Translator
 

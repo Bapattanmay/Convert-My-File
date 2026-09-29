@@ -19,7 +19,7 @@ export async function GET(req: Request) {
   const feature = url.searchParams.get("feature") || undefined;
   const sort = url.searchParams.get("sort") || "lastSeen_desc";
 
-  const store = getAnalyticsStore();
+  const store = await getAnalyticsStore();
   const rows = filterVisitors({
     visitors: store.visitors,
     sessions: store.sessions,
@@ -65,7 +65,7 @@ export async function GET(req: Request) {
     );
   }
 
-  recordAdminAudit({
+  await recordAdminAudit({
     adminEmail: admin.email,
     action: "export_visitors_csv",
     meta: { range, count: rows.length },

@@ -16,12 +16,12 @@ export async function GET(
   }
 
   const { id } = await ctx.params;
-  const detail = getVisitorDetail(id);
+  const detail = await getVisitorDetail(id);
   if (!detail) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  recordAdminAudit({
+  await recordAdminAudit({
     adminEmail: admin.email,
     action: "view_visitor",
     targetId: id,

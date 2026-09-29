@@ -19,7 +19,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Invalid range" }, { status: 400 });
   }
 
-  const store = getAnalyticsStore();
+  const store = await getAnalyticsStore();
   const overview = computeOverview({
     range,
     visitors: store.visitors,
@@ -46,7 +46,7 @@ export async function GET(req: Request) {
       };
     });
 
-  recordAdminAudit({
+  await recordAdminAudit({
     adminEmail: admin.email,
     action: "view_overview",
     meta: { range },
