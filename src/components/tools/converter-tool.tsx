@@ -318,8 +318,8 @@ export function ConverterTool() {
                   selected
                     ? "bg-[#0F172A] text-[#D4AF37] shadow-[0_8px_20px_rgba(15,23,42,0.18)] ring-2 ring-[#D4AF37]/50"
                     : allowed
-                      ? "cursor-pointer border border-[#C5A880] bg-[#FFFCF5] text-[#0F172A] shadow-sm hover:border-[#D4AF37] hover:bg-[#FFF3D6]"
-                      : "cursor-not-allowed border border-transparent bg-[#E8E4DC] text-[#A89F90] opacity-40 line-through decoration-2"
+                      ? "cursor-pointer border-2 border-[#D4AF37] bg-[#F3E0B8] text-[#0F172A] shadow-sm hover:bg-[#EBD49A]"
+                      : "cursor-not-allowed border border-transparent bg-transparent text-[#C4BDB0] opacity-35 line-through decoration-[#C4BDB0]"
                 }`}
               >
                 {fmt}
