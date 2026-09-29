@@ -174,7 +174,7 @@ async function main() {
         allowed.push(label);
         assert(!disabled, `chip ${label} enabled`, results);
         assert(
-          !cls.includes("opacity-55") && !cls.includes("line-through"),
+          !cls.includes("opacity-55") && !cls.includes("opacity-40") && !cls.includes("line-through"),
           `chip ${label} not grayed`,
           results
         );
@@ -182,7 +182,7 @@ async function main() {
         blocked.push(label);
         assert(disabled, `chip ${label} disabled`, results);
         assert(
-          cls.includes("opacity-55") || cls.includes("line-through"),
+          cls.includes("opacity-55") || cls.includes("opacity-40") || cls.includes("line-through"),
           `chip ${label} grayed`,
           results
         );

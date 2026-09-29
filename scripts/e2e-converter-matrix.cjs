@@ -249,7 +249,7 @@ async function runUiCase(page, opts, results) {
         allowedCount++;
         assert(!disabled, `${name}: allowed chip ${await chip.innerText()} enabled`, results);
         assert(
-          !cls.includes("line-through") && !cls.includes("opacity-55"),
+          !cls.includes("line-through") && !cls.includes("opacity-40") && !cls.includes("opacity-55"),
           `${name}: allowed chip ${await chip.innerText()} not grayed`,
           results
         );
@@ -257,7 +257,7 @@ async function runUiCase(page, opts, results) {
         disabledCount++;
         assert(disabled, `${name}: blocked chip ${await chip.innerText()} disabled`, results);
         assert(
-          cls.includes("line-through") || cls.includes("opacity-55"),
+          cls.includes("line-through") || cls.includes("opacity-40") || cls.includes("opacity-55"),
           `${name}: blocked chip ${await chip.innerText()} grayed`,
           results
         );

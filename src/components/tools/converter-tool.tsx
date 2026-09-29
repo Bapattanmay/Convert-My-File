@@ -316,10 +316,10 @@ export function ConverterTool() {
                 }}
                 className={`rounded-full px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wide transition ${
                   selected
-                    ? "bg-[#0F172A] text-[#D4AF37] shadow-[0_8px_20px_rgba(15,23,42,0.18)] ring-2 ring-[#D4AF37]/40"
+                    ? "bg-[#0F172A] text-[#D4AF37] shadow-[0_8px_20px_rgba(15,23,42,0.18)] ring-2 ring-[#D4AF37]/50"
                     : allowed
-                      ? "cursor-pointer bg-white text-[#0F172A] ring-1 ring-[#C5A880]/80 hover:bg-[#FFF8EB] hover:ring-[#D4AF37]"
-                      : "cursor-not-allowed bg-[#EDE9E1] text-[#B0A89A] opacity-55 line-through decoration-[#B0A89A]/80"
+                      ? "cursor-pointer border border-[#C5A880] bg-[#FFFCF5] text-[#0F172A] shadow-sm hover:border-[#D4AF37] hover:bg-[#FFF3D6]"
+                      : "cursor-not-allowed border border-transparent bg-[#E8E4DC] text-[#A89F90] opacity-40 line-through decoration-2"
                 }`}
               >
                 {fmt}
