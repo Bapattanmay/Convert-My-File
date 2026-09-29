@@ -202,6 +202,7 @@ async function runUiCase(page, opts, results) {
     downloadExt,
     validateDownload,
     isImage,
+    sourceFormatHint = true,
   } = opts;
 
   await openConverter(page);
@@ -224,10 +225,47 @@ async function runUiCase(page, opts, results) {
     await page.waitForTimeout(200);
   }
 
-  // Confirm file accepted (chip shows filename)
-  const chip = page.locator("#tools").getByText(path.basename(file), { exact: false });
+  // Confirm file accepted (chip shows filename · format · size)
+  const baseName = path.basename(file);
+  const chip = page
+    .locator("#tools p")
+    .filter({ hasText: baseName })
+    .first();
   await chip.waitFor({ state: "visible", timeout: 10000 });
-  assert(true, `${name}: upload accepted (${path.basename(file)})`, results);
+  assert(true, `${name}: upload accepted (${baseName})`, results);
+
+  // Chip matrix: available formats look selectable; others disabled
+  if (sourceFormatHint) {
+    const chips = page.locator('[data-testid="output-formats"] button');
+    const count = await chips.count();
+    let allowedCount = 0;
+    let disabledCount = 0;
+    for (let i = 0; i < count; i++) {
+      const chip = chips.nth(i);
+      const allowed = (await chip.getAttribute("data-allowed")) === "true";
+      const disabled = await chip.isDisabled();
+      const cls = (await chip.getAttribute("class")) || "";
+      if (allowed) {
+        allowedCount++;
+        assert(!disabled, `${name}: allowed chip ${await chip.innerText()} enabled`, results);
+        assert(
+          !cls.includes("line-through") && !cls.includes("opacity-55"),
+          `${name}: allowed chip ${await chip.innerText()} not grayed`,
+          results
+        );
+      } else {
+        disabledCount++;
+        assert(disabled, `${name}: blocked chip ${await chip.innerText()} disabled`, results);
+        assert(
+          cls.includes("line-through") || cls.includes("opacity-55"),
+          `${name}: blocked chip ${await chip.innerText()} grayed`,
+          results
+        );
+      }
+    }
+    assert(allowedCount >= 1, `${name}: at least one allowed chip`, results);
+    assert(disabledCount >= 1, `${name}: at least one disabled chip`, results);
+  }
 
   const errBefore = await page.locator("#tools [role='alert']").textContent().catch(() => null);
   if (errBefore) throw new Error(`${name}: error before convert: ${errBefore}`);
@@ -248,17 +286,19 @@ async function runUiCase(page, opts, results) {
         const text = pres.map((p) => p.textContent || "").join("\n");
         if (!text || text.includes("Click Convert to generate")) return false;
         if (text.includes("Output preview will appear here")) return false;
-        return markers.every((m) => text.includes(m)) ? "OK" : "WAIT";
+        return markers.every((m) => text.includes(m));
       },
       expectPreview,
       { timeout: 60000 }
     );
+    const alertText = await page
+      .locator("#tools [role='alert']")
+      .textContent()
+      .catch(() => null);
+    if (alertText?.trim()) throw new Error(alertText.trim());
     const preview = (
       await page.locator("#tools pre").allTextContents()
     ).join("\n");
-    if (preview.startsWith("ERR:")) {
-      throw new Error(preview.slice(4));
-    }
     for (const marker of expectPreview) {
       assert(
         preview.includes(marker),
@@ -318,9 +358,29 @@ async function main() {
       downloadExt: "pdf",
       validateDownload: async (bytes, outPath, results, name) => {
         assert(bytes.slice(0, 5).toString() === "%PDF-", `${name}: PDF magic`, results);
+        // Avoid hanging pdfjs font fetch — scan raw streams for marker when possible
+        const asLatin = bytes.toString("latin1");
+        const hasMarker =
+          asLatin.includes("ALPHA-90210") ||
+          Buffer.from(bytes).includes(Buffer.from("ALPHA-90210"));
+        if (hasMarker) {
+          assert(true, `${name}: PDF bytes contain marker`, results);
+          return;
+        }
         try {
           const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
-          const doc = await pdfjs.getDocument({ data: new Uint8Array(bytes) }).promise;
+          const loading = pdfjs.getDocument({
+            data: new Uint8Array(bytes),
+            disableFontFace: true,
+            useSystemFonts: true,
+            isEvalSupported: false,
+          });
+          const doc = await Promise.race([
+            loading.promise,
+            new Promise((_, rej) =>
+              setTimeout(() => rej(new Error("pdfjs timeout")), 8000)
+            ),
+          ]);
           let text = "";
           for (let i = 1; i <= doc.numPages; i++) {
             const p = await doc.getPage(i);
@@ -382,9 +442,25 @@ async function main() {
       downloadExt: "pdf",
       validateDownload: async (bytes, outPath, results, name) => {
         assert(bytes.slice(0, 5).toString() === "%PDF-", `${name}: PDF magic`, results);
+        const asLatin = bytes.toString("latin1");
+        if (asLatin.includes("GAMMA-3131") || asLatin.includes("TXT-MARKER")) {
+          assert(true, `${name}: PDF bytes contain marker`, results);
+          return;
+        }
         try {
           const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
-          const doc = await pdfjs.getDocument({ data: new Uint8Array(bytes) }).promise;
+          const loading = pdfjs.getDocument({
+            data: new Uint8Array(bytes),
+            disableFontFace: true,
+            useSystemFonts: true,
+            isEvalSupported: false,
+          });
+          const doc = await Promise.race([
+            loading.promise,
+            new Promise((_, rej) =>
+              setTimeout(() => rej(new Error("pdfjs timeout")), 8000)
+            ),
+          ]);
           let text = "";
           for (let i = 1; i <= doc.numPages; i++) {
             const p = await doc.getPage(i);

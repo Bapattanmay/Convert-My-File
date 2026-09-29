@@ -293,29 +293,33 @@ export function ConverterTool() {
         <label className="text-xs font-semibold tracking-[0.16em] text-[#94A3B8]">
           OUTPUT FORMAT
         </label>
-        <div className="mt-3 flex flex-wrap gap-2">
+        <div className="mt-3 flex flex-wrap gap-2" data-testid="output-formats">
           {OUTPUT_FORMATS.map((fmt) => {
-            const allowed = !sourceFormat || isConversionSupported(sourceFormat, fmt);
+            const allowed =
+              !sourceFormat || isConversionSupported(sourceFormat, fmt);
+            const selected = target === fmt;
             return (
               <button
                 key={fmt}
                 type="button"
                 disabled={!allowed}
+                aria-pressed={selected}
+                data-allowed={allowed ? "true" : "false"}
                 title={
                   allowed
-                    ? undefined
+                    ? `Convert to ${formatLabel(fmt)}`
                     : unsupportedConversionMessage(sourceFormat!, fmt)
                 }
                 onClick={() => {
                   if (!allowed) return;
                   selectTarget(fmt);
                 }}
-                className={`rounded-full px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wide ${
-                  target === fmt
-                    ? "bg-[#101828] text-white"
+                className={`rounded-full px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wide transition ${
+                  selected
+                    ? "bg-[#0F172A] text-[#D4AF37] shadow-[0_8px_20px_rgba(15,23,42,0.18)] ring-2 ring-[#D4AF37]/40"
                     : allowed
-                      ? "bg-[#F7F4EE] text-[#475569]"
-                      : "cursor-not-allowed bg-[#F1EFEA] text-[#C4BDB0] line-through"
+                      ? "cursor-pointer bg-white text-[#0F172A] ring-1 ring-[#C5A880]/80 hover:bg-[#FFF8EB] hover:ring-[#D4AF37]"
+                      : "cursor-not-allowed bg-[#EDE9E1] text-[#B0A89A] opacity-55 line-through decoration-[#B0A89A]/80"
                 }`}
               >
                 {fmt}
