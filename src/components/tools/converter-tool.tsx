@@ -88,13 +88,34 @@ export function ConverterTool() {
         return;
       }
 
-      const pairErr = validatePair(detected, target);
-      if (pairErr) {
-        setFile(null);
-        setSourceFormat(null);
-        setError(pairErr);
-        if (inputRef.current) inputRef.current.value = "";
-        return;
+      // If current output isn't valid for this source, switch to a sensible default
+      // instead of rejecting the upload (default UI target is JPG).
+      let nextTarget = target;
+      if (!isConversionSupported(detected, target)) {
+        const preferred: FormatId[] = [
+          "pdf",
+          "docx",
+          "txt",
+          "csv",
+          "jpg",
+          "png",
+          "xlsx",
+        ];
+        const pick =
+          preferred.find((f) => isConversionSupported(detected, f)) ||
+          OUTPUT_FORMATS.find((f) => isConversionSupported(detected, f));
+        if (!pick) {
+          setFile(null);
+          setSourceFormat(null);
+          setError(
+            unsupportedConversionMessage(detected, target)
+          );
+          if (inputRef.current) inputRef.current.value = "";
+          return;
+        }
+        nextTarget = pick;
+        setTarget(pick);
+        setQuickTag("");
       }
 
       setFile(picked);
@@ -110,18 +131,18 @@ export function ConverterTool() {
       ) {
         setPreviewKind("image");
         setPreviewText(
-          `Source: ${picked.name} (${formatLabel(detected)})\nTarget: ${formatLabel(target)}\n\nClick Convert to generate the output preview.`
+          `Source: ${picked.name} (${formatLabel(detected)})\nTarget: ${formatLabel(nextTarget)}\n\nClick Convert to generate the output preview.`
         );
         const url = URL.createObjectURL(picked);
         setPreviewUrl(url);
       } else {
         setPreviewKind("text");
         setPreviewText(
-          `Source: ${picked.name} (${formatLabel(detected)})\nTarget: ${formatLabel(target)}\nSize: ${formatBytes(picked.size)}\n\nClick Convert to generate the output preview.`
+          `Source: ${picked.name} (${formatLabel(detected)})\nTarget: ${formatLabel(nextTarget)}\nSize: ${formatBytes(picked.size)}\n\nClick Convert to generate the output preview.`
         );
       }
     },
-    [clearPreview, startWipeTimer, target, validatePair]
+    [clearPreview, startWipeTimer, target]
   );
 
   const selectTarget = (fmt: FormatId, tagLabel = "") => {
