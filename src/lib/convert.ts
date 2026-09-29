@@ -1,5 +1,13 @@
 /** Smart Converter — format matrix + client-side conversions */
 
+import {
+  blocksToDocxBlob,
+  blocksToHtml,
+  blocksToPlainText,
+  extractPdfBlocks,
+  type DocBlock,
+} from "@/lib/pdf-extract";
+
 export type FormatId =
   | "pdf"
   | "docx"
@@ -411,41 +419,55 @@ async function extractTextish(file: File, from: FormatId): Promise<string> {
     const asText = new TextDecoder("utf-8", { fatal: false }).decode(bytes);
     const texts = [...asText.matchAll(/>([^<]{2,})</g)]
       .map((m) => m[1])
-      .filter((t) => /[A-Za-z0-9]/.test(t) && !/^[\s\d./-]+$/.test(t))
-      .slice(0, 200);
+      .filter(
+        (t) =>
+          /[A-Za-z0-9]/.test(t) &&
+          !/^[\s\d./-]+$/.test(t) &&
+          !/%PDF-|endobj|\/Type\s*\//.test(t)
+      )
+      .slice(0, 400);
     if (texts.length) return texts.join("\n");
     return `Document: ${file.name}\n(Size ${file.size} bytes)\nConverted via Premium Utility text extraction.`;
   }
   if (from === "pdf") {
-    const buf = await file.arrayBuffer();
-    const asText = new TextDecoder("utf-8", { fatal: false }).decode(
-      new Uint8Array(buf)
-    );
-    const chunks = asText
-      .replace(/[^\x20-\x7E\n\r\t]/g, " ")
-      .split(/\s+/)
-      .filter((w) => w.length > 2)
-      .slice(0, 400);
-    return chunks.length
-      ? chunks.join(" ")
-      : `PDF: ${file.name}\nConverted via Premium Utility.`;
+    const blocks = await extractPdfBlocks(file);
+    return blocksToPlainText(blocks);
   }
   return file.text();
 }
 
-function textToDocBlob(text: string, asDocx: boolean): Blob {
-  // Minimal HTML Word-compatible doc (works as .doc for Word/LibreOffice)
-  const html = `<html><head><meta charset="utf-8"></head><body><pre>${text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")}</pre></body></html>`;
+async function extractStructured(
+  file: File,
+  from: FormatId
+): Promise<{ text: string; blocks?: DocBlock[]; html?: string }> {
+  if (from === "pdf") {
+    const blocks = await extractPdfBlocks(file);
+    return {
+      text: blocksToPlainText(blocks),
+      blocks,
+      html: blocksToHtml(blocks),
+    };
+  }
+  const text = await extractTextish(file, from);
+  return { text };
+}
+
+function textToDocBlob(text: string, asDocx: boolean, html?: string): Blob {
+  const body =
+    html ??
+    `<pre>${text
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")}</pre>`;
+  const docHtml = html?.includes("<html")
+    ? html
+    : `<html><head><meta charset="utf-8"></head><body>${body}</body></html>`;
   if (asDocx) {
-    // Still HTML-based for client demo — real OOXML is heavy; mime as docx
-    return new Blob([html], {
+    return new Blob([docHtml], {
       type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     });
   }
-  return new Blob([html], { type: "application/msword" });
+  return new Blob([docHtml], { type: "application/msword" });
 }
 
 export async function convertFile(
@@ -463,24 +485,43 @@ export async function convertFile(
     return convertImage(file, to);
   }
 
-  // Spreadsheet / text / word / pdf text pipeline
-  const text = await extractTextish(file, from);
+  const structured = await extractStructured(file, from);
+  const text = structured.text;
+
+  // Safety: never surface raw PDF source in outputs
+  if (/%PDF-|endobj|startxref/.test(text.slice(0, 500))) {
+    throw new Error(
+      "PDF text extraction failed (raw PDF bytes detected). Try a text-based PDF."
+    );
+  }
 
   if (to === "txt" || to === "csv") {
     const out =
-      to === "csv" && !text.includes(",")
+      to === "csv" && !text.includes("|") && !text.includes(",")
         ? text
             .split(/\r?\n/)
+            .filter(Boolean)
             .map((l) => `"${l.replace(/"/g, '""')}"`)
             .join("\n")
-        : text;
+        : text.includes("|") && to === "csv"
+          ? text
+              .split(/\r?\n/)
+              .filter(Boolean)
+              .map((l) =>
+                l
+                  .split("|")
+                  .map((c) => `"${c.trim().replace(/"/g, '""')}"`)
+                  .join(",")
+              )
+              .join("\n")
+          : text;
     const blob = new Blob([out], {
       type: to === "csv" ? "text/csv" : "text/plain;charset=utf-8",
     });
     return {
       blob,
       previewKind: "text",
-      previewText: out.slice(0, 4000),
+      previewText: out.slice(0, 6000),
       filenameExt: to,
     };
   }
@@ -490,7 +531,7 @@ export async function convertFile(
     return {
       blob,
       previewKind: "pdf",
-      previewText: text.slice(0, 2000),
+      previewText: text.slice(0, 4000),
       filenameExt: "pdf",
     };
   }
@@ -513,11 +554,20 @@ export async function convertFile(
   }
 
   if (to === "doc" || to === "docx") {
-    const blob = textToDocBlob(text, to === "docx");
+    if (to === "docx" && structured.blocks?.length) {
+      const blob = await blocksToDocxBlob(structured.blocks);
+      return {
+        blob,
+        previewKind: "text",
+        previewText: text.slice(0, 6000),
+        filenameExt: "docx",
+      };
+    }
+    const blob = textToDocBlob(text, to === "docx", structured.html);
     return {
       blob,
       previewKind: "text",
-      previewText: text.slice(0, 4000),
+      previewText: text.slice(0, 6000),
       filenameExt: to,
     };
   }
