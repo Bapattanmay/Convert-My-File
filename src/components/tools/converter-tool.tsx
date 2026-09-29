@@ -224,8 +224,8 @@ export function ConverterTool() {
     : OUTPUT_FORMATS;
 
   return (
-    <div className="grid gap-5 lg:grid-cols-2">
-      <div className="rounded-[28px] border border-[#E8E2D6] bg-[#FBF9F5] p-6 sm:p-7">
+    <div className="grid items-start gap-4 lg:grid-cols-2">
+      <div className="rounded-[28px] border border-[#E8E2D6] bg-[#FBF9F5] p-5 sm:p-6">
         <div className="flex items-center justify-between gap-3">
           <div>
             <h3 className="font-[family-name:var(--font-display)] text-lg font-semibold text-[#0F172A]">
@@ -245,7 +245,7 @@ export function ConverterTool() {
             e.preventDefault();
             void onPick(e.dataTransfer.files?.[0] ?? null);
           }}
-          className="mt-6 flex w-full flex-col items-center justify-center rounded-[24px] border border-dashed border-[#C5A880]/70 bg-white px-4 py-14 text-center transition hover:border-[#D4AF37] hover:bg-[#FFFCF7]"
+          className="mt-4 flex w-full flex-col items-center justify-center rounded-[24px] border border-dashed border-[#C5A880]/70 bg-white px-4 py-8 text-center transition hover:border-[#D4AF37] hover:bg-[#FFFCF7]"
         >
           <FileUp className="h-8 w-8 text-[#C5A880]" />
           <p className="mt-3 text-sm font-semibold text-[#0F172A]">
@@ -289,7 +289,7 @@ export function ConverterTool() {
         </div>
       </div>
 
-      <div className="rounded-[28px] border border-[#E8E2D6] bg-white p-6 sm:p-7">
+      <div className="rounded-[28px] border border-[#E8E2D6] bg-white p-5 sm:p-6">
         <label className="text-xs font-semibold tracking-[0.16em] text-[#94A3B8]">
           OUTPUT FORMAT
         </label>
@@ -334,7 +334,7 @@ export function ConverterTool() {
           </p>
         ) : null}
 
-        <div className="mt-5 min-h-[200px] overflow-hidden rounded-[20px] bg-[#0F172A] p-4 text-xs leading-relaxed text-[#CBD5E1]">
+        <div className="mt-4 max-h-64 min-h-[11rem] overflow-y-auto overscroll-contain rounded-[20px] bg-[#0F172A] p-4 text-xs leading-relaxed text-[#CBD5E1]">
           {previewKind === "image" && previewUrl ? (
             <div className="flex flex-col gap-3">
               <p className="font-semibold tracking-wide text-[#D4AF37]">
@@ -344,16 +344,16 @@ export function ConverterTool() {
               <img
                 src={previewUrl}
                 alt="Converted output preview"
-                className="max-h-56 w-full rounded-xl object-contain bg-[#101828]"
+                className="max-h-44 w-full rounded-xl object-contain bg-[#101828]"
               />
               {previewText ? (
-                <pre className="whitespace-pre-wrap font-mono text-[11px] text-[#94A3B8]">
+                <pre className="whitespace-pre-wrap break-words font-mono text-[11px] text-[#94A3B8]">
                   {previewText}
                 </pre>
               ) : null}
             </div>
           ) : (
-            <pre className="whitespace-pre-wrap font-mono">
+            <pre className="whitespace-pre-wrap break-words font-mono">
               {previewText ||
                 "Output preview will appear here after a successful conversion."}
             </pre>

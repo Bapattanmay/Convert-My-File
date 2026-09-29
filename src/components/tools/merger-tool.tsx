@@ -123,7 +123,7 @@ export function MergerTool() {
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
-        className="mt-5 flex w-full flex-col items-center rounded-[24px] border border-dashed border-[#C5A880]/70 bg-gradient-to-b from-[#FBF9F5] to-[#F7F4EE] px-4 py-10 transition hover:border-[#D4AF37]"
+        className="mt-4 flex w-full flex-col items-center rounded-[24px] border border-dashed border-[#C5A880]/70 bg-gradient-to-b from-[#FBF9F5] to-[#F7F4EE] px-4 py-8 transition hover:border-[#D4AF37]"
       >
         <FileUp className="h-7 w-7 text-[#C5A880]" />
         <p className="mt-3 text-sm font-semibold text-[#0F172A]">
@@ -146,7 +146,7 @@ export function MergerTool() {
       />
 
       {files.length ? (
-        <ol className="mt-5 space-y-2">
+        <ol className="mt-4 max-h-64 space-y-2 overflow-y-auto overscroll-contain pr-1">
           {files.map((item, index) => (
             <li
               key={item.id}

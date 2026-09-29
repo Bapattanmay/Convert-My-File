@@ -209,9 +209,9 @@ export function TranslatorTool() {
   };
 
   return (
-    <div className="space-y-5">
-      <div className="grid gap-5 lg:grid-cols-2">
-        <div className="rounded-[28px] border border-[#E8E2D6] bg-[#FBF9F5] p-6">
+    <div className="space-y-4">
+      <div className="grid items-start gap-4 lg:grid-cols-2">
+        <div className="rounded-[28px] border border-[#E8E2D6] bg-[#FBF9F5] p-5 sm:p-6">
           <h3 className="font-[family-name:var(--font-display)] text-lg font-semibold text-[#0F172A]">
             Document Translator
           </h3>
@@ -223,14 +223,14 @@ export function TranslatorTool() {
           <button
             type="button"
             onClick={() => inputRef.current?.click()}
-            className="mt-5 flex w-full flex-col items-center rounded-[24px] border border-dashed border-[#C5A880]/70 bg-white px-4 py-12"
+            className="mt-4 flex w-full flex-col items-center rounded-[24px] border border-dashed border-[#C5A880]/70 bg-white px-4 py-8"
           >
             <FileUp className="h-7 w-7 text-[#C5A880]" />
-            <p className="mt-3 text-sm font-semibold text-[#0F172A]">
+            <p className="mt-2 text-sm font-semibold text-[#0F172A]">
               Upload Word / PDF / Excel
             </p>
             {file ? (
-              <p className="mt-3 text-xs text-[#64748B]">
+              <p className="mt-2 text-xs text-[#64748B]">
                 {file.name} · {formatBytes(file.size)}
               </p>
             ) : null}
@@ -243,7 +243,7 @@ export function TranslatorTool() {
             onChange={(e) => void onPick(e.target.files?.[0] ?? null)}
           />
 
-          <label className="mt-5 block text-xs font-semibold tracking-[0.16em] text-[#94A3B8]">
+          <label className="mt-4 block text-xs font-semibold tracking-[0.16em] text-[#94A3B8]">
             OUTPUT LANGUAGE ({TRANSLATOR_LANGUAGES.length})
           </label>
           <Select value={language} onValueChange={(v) => v && setLanguage(v)}>
@@ -269,22 +269,65 @@ export function TranslatorTool() {
               </SelectGroup>
             </SelectContent>
           </Select>
+
+          {busy ? (
+            <div className="mt-4 space-y-2">
+              <Progress value={progress} className="h-2" />
+              <p className="text-xs text-[#64748B]">Translating… {progress}%</p>
+            </div>
+          ) : null}
+          {error ? (
+            <p className="mt-3 text-sm text-red-600" role="alert">
+              {error}
+            </p>
+          ) : null}
+
+          <div className="mt-4 flex flex-wrap gap-3">
+            <Button
+              onClick={() => void translate()}
+              disabled={busy || !file}
+              className="rounded-full bg-[#0F172A] text-white hover:bg-[#1E293B]"
+            >
+              {busy ? (
+                <>
+                  <Loader2 className="animate-spin" /> Working
+                </>
+              ) : (
+                "Translate & preview"
+              )}
+            </Button>
+            {result ? (
+              <Button
+                onClick={download}
+                variant="outline"
+                className="rounded-full border-[#C5A880]"
+              >
+                <Download /> Download translation
+              </Button>
+            ) : null}
+          </div>
         </div>
 
-        <div className="rounded-[28px] border border-[#E8E2D6] bg-white p-6">
+        <div className="rounded-[28px] border border-[#E8E2D6] bg-white p-5 sm:p-6">
           <p className="text-xs font-semibold tracking-[0.16em] text-[#94A3B8]">
             SOURCE PREVIEW
           </p>
-          <div className="mt-2 min-h-[120px] rounded-[18px] bg-[#F7F4EE] p-3 font-mono text-xs text-[#475569]">
-            <pre className="whitespace-pre-wrap">
+          <div
+            data-testid="source-preview"
+            className="mt-2 max-h-44 min-h-[6.5rem] overflow-y-auto overscroll-contain rounded-[18px] bg-[#F7F4EE] p-3 font-mono text-xs leading-relaxed text-[#475569]"
+          >
+            <pre className="whitespace-pre-wrap break-words">
               {sourcePreview || "Upload to preview source text."}
             </pre>
           </div>
-          <p className="mt-4 text-xs font-semibold tracking-[0.16em] text-[#94A3B8]">
+          <p className="mt-3 text-xs font-semibold tracking-[0.16em] text-[#94A3B8]">
             TRANSLATED PREVIEW · {selectedLabel.toUpperCase()}
           </p>
-          <div className="mt-2 min-h-[140px] rounded-[18px] bg-[#0F172A] p-3 font-mono text-xs text-[#CBD5E1]">
-            <pre className="whitespace-pre-wrap">
+          <div
+            data-testid="translated-preview"
+            className="mt-2 max-h-56 min-h-[7rem] overflow-y-auto overscroll-contain rounded-[18px] bg-[#0F172A] p-3 font-mono text-xs leading-relaxed text-[#CBD5E1]"
+          >
+            <pre className="whitespace-pre-wrap break-words">
               {translatedPreview ||
                 "Run translate to generate a real-language preview before download."}
             </pre>
@@ -293,43 +336,6 @@ export function TranslatorTool() {
             <p className="mt-2 text-[11px] text-[#94A3B8]">{providerNote}</p>
           ) : null}
         </div>
-      </div>
-
-      {busy ? (
-        <div className="space-y-2">
-          <Progress value={progress} className="h-2" />
-          <p className="text-xs text-[#64748B]">Translating… {progress}%</p>
-        </div>
-      ) : null}
-      {error ? (
-        <p className="text-sm text-red-600" role="alert">
-          {error}
-        </p>
-      ) : null}
-
-      <div className="flex flex-wrap gap-3">
-        <Button
-          onClick={() => void translate()}
-          disabled={busy || !file}
-          className="rounded-full bg-[#0F172A] text-white hover:bg-[#1E293B]"
-        >
-          {busy ? (
-            <>
-              <Loader2 className="animate-spin" /> Working
-            </>
-          ) : (
-            "Translate & preview"
-          )}
-        </Button>
-        {result ? (
-          <Button
-            onClick={download}
-            variant="outline"
-            className="rounded-full border-[#C5A880]"
-          >
-            <Download /> Download translation
-          </Button>
-        ) : null}
       </div>
     </div>
   );
