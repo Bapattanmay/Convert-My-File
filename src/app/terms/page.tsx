@@ -13,7 +13,7 @@ export default function TermsPage() {
 
       <div className="prose-premium mt-10 space-y-6 text-[15px] leading-relaxed text-[#334155]">
         <p>
-          By using Premium Utility you agree to process files only in the
+          By using Convert My File you agree to process files only in the
           ephemeral client workspace provided by the service. Core conversion,
           translation, merge, and size tools are offered on an as-is basis for
           lawful personal and business use.
@@ -39,7 +39,7 @@ export default function TermsPage() {
         </h2>
         <p>
           Outputs are generated for convenience. Verify critical documents
-          before relying on them. Premium Utility is not liable for data loss
+          before relying on them. Convert My File is not liable for data loss
           resulting from the intentional wipe timer or session discard.
         </p>
       </div>

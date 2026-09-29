@@ -16,6 +16,14 @@ import {
 
 type Unit = "KB" | "MB";
 
+function parseTargetBytes(value: string, unit: Unit): number | null {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  // Exact integer bytes from KB/MB entry
+  const factor = unit === "KB" ? 1024 : 1024 * 1024;
+  return Math.round(n * factor);
+}
+
 export function CompressorTool() {
   const inputRef = useRef<HTMLInputElement>(null);
   const { startWipeTimer, markDownloaded } = useWipeTimer();
@@ -27,11 +35,7 @@ export function CompressorTool() {
   const [result, setResult] = useState<Blob | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const targetBytes = (() => {
-    const n = Number(targetValue);
-    if (!Number.isFinite(n) || n <= 0) return null;
-    return Math.round(n * (unit === "KB" ? 1024 : 1024 * 1024));
-  })();
+  const targetBytes = parseTargetBytes(targetValue, unit);
 
   const mode =
     file && targetBytes
@@ -62,9 +66,9 @@ export function CompressorTool() {
     setBusy(true);
     setError(null);
     try {
-      for (const step of [22, 48, 72, 91, 100]) {
+      for (const step of [22, 48, 72, 91]) {
         setProgress(step);
-        await sleep(140);
+        await sleep(100);
       }
       const buf = await file.arrayBuffer();
       const blob = await resizeToExactBytes(
@@ -72,9 +76,21 @@ export function CompressorTool() {
         targetBytes,
         file.type || "application/octet-stream"
       );
+      // Hard guarantee: output byte length must equal target
+      if (blob.size !== targetBytes) {
+        throw new Error(
+          `Exact size failed: got ${blob.size} bytes, expected ${targetBytes}.`
+        );
+      }
+      setProgress(100);
       setResult(blob);
-    } catch {
-      setError("Could not reach the exact target size. Try again.");
+    } catch (e) {
+      setError(
+        e instanceof Error
+          ? e.message
+          : "Could not reach the exact target size. Try again."
+      );
+      setResult(null);
     } finally {
       setBusy(false);
     }
@@ -93,19 +109,19 @@ export function CompressorTool() {
   };
 
   return (
-    <div className="rounded-[28px] border border-[#E8E2D6] bg-white p-6 sm:p-7">
-      <h3 className="font-[family-name:var(--font-display)] text-lg font-semibold text-[#0F172A]">
+    <div className="rounded-[28px] border border-[#E8E2D6]/80 bg-white/90 p-6 shadow-[0_20px_60px_rgba(15,23,42,0.05)] backdrop-blur-sm sm:p-7">
+      <h3 className="font-[family-name:var(--font-display)] text-lg font-semibold tracking-tight text-[#0F172A]">
         Compressor / Expander
       </h3>
-      <p className="mt-1 text-sm text-[#64748B]">
-        Enter an exact target in KB or MB. Output matches that size as closely
-        as technically feasible.
+      <p className="mt-1 text-sm leading-relaxed text-[#64748B]">
+        Enter an exact target in KB or MB. Output byte length matches that
+        target exactly.
       </p>
 
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
-        className="mt-5 flex w-full flex-col items-center rounded-[24px] border border-dashed border-[#C5A880]/70 bg-[#FBF9F5] px-4 py-10"
+        className="mt-5 flex w-full flex-col items-center rounded-[24px] border border-dashed border-[#C5A880]/70 bg-gradient-to-b from-[#FBF9F5] to-[#F7F4EE] px-4 py-10 transition hover:border-[#D4AF37]"
       >
         <FileUp className="h-7 w-7 text-[#C5A880]" />
         <p className="mt-3 text-sm font-semibold text-[#0F172A]">
@@ -113,7 +129,8 @@ export function CompressorTool() {
         </p>
         {file ? (
           <p className="mt-3 text-xs text-[#64748B]">
-            {file.name} · {formatBytes(file.size)}
+            {file.name} · {formatBytes(file.size)} · {file.size.toLocaleString()}{" "}
+            bytes
           </p>
         ) : null}
       </button>
@@ -136,7 +153,10 @@ export function CompressorTool() {
             min="0.001"
             step="any"
             value={targetValue}
-            onChange={(e) => setTargetValue(e.target.value)}
+            onChange={(e) => {
+              setTargetValue(e.target.value);
+              setResult(null);
+            }}
             className="mt-2 h-11 rounded-2xl border-[#E8E2D6]"
           />
         </div>
@@ -147,8 +167,11 @@ export function CompressorTool() {
               <button
                 key={u}
                 type="button"
-                onClick={() => setUnit(u)}
-                className={`rounded-xl px-4 py-2 text-sm font-semibold ${
+                onClick={() => {
+                  setUnit(u);
+                  setResult(null);
+                }}
+                className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
                   unit === u
                     ? "bg-[#0F172A] text-[#D4AF37]"
                     : "text-[#64748B]"
@@ -161,7 +184,7 @@ export function CompressorTool() {
         </div>
       </div>
 
-      <div className="mt-4 rounded-2xl bg-[#101828] px-4 py-3 text-sm text-[#CBD5E1]">
+      <div className="mt-4 rounded-2xl bg-gradient-to-br from-[#0F172A] to-[#101828] px-4 py-3 text-sm text-[#CBD5E1] ring-1 ring-[#D4AF37]/15">
         <p>
           Mode: <span className="font-semibold text-[#D4AF37]">{mode}</span>
         </p>
@@ -171,19 +194,23 @@ export function CompressorTool() {
             {targetValue || "—"} {unit}
           </span>
           {targetBytes ? (
-            <span className="text-[#94A3B8]">
+            <span className="text-[#94A3B8]" data-testid="target-bytes">
               {" "}
               ({targetBytes.toLocaleString()} bytes)
             </span>
           ) : null}
         </p>
         {result ? (
-          <p className="mt-1 text-[#86EFAC]">
-            Output size: {formatBytes(result.size)} · {result.size.toLocaleString()}{" "}
-            bytes
+          <p
+            className="mt-1 text-[#86EFAC]"
+            data-testid="output-bytes"
+            data-bytes={result.size}
+          >
+            Output size: {formatBytes(result.size)} ·{" "}
+            {result.size.toLocaleString()} bytes
             {targetBytes && result.size === targetBytes
               ? " · exact match"
-              : ""}
+              : " · MISMATCH"}
           </p>
         ) : null}
       </div>

@@ -19,7 +19,7 @@ export default function ContactPage() {
         Contact
       </h1>
       <p className="mt-4 max-w-xl text-base leading-relaxed text-[#64748B]">
-        Reach the Premium Utility desk for privacy questions, wipe-timer
+        Reach the Convert My File desk for privacy questions, wipe-timer
         clarification, or Premium identity onboarding. We never ask you to
         re-upload wiped files.
       </p>

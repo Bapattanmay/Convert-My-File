@@ -13,8 +13,15 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useWipeTimer } from "@/components/wipe-provider";
 import { downloadBlob, formatBytes, sleep } from "@/lib/file-utils";
+import {
+  detectMergeKind,
+  mergeAcceptAttribute,
+  mergeDocuments,
+  unsupportedMergeMessage,
+  type MergeKind,
+} from "@/lib/merge";
 
-type ListedFile = { id: string; file: File };
+type ListedFile = { id: string; file: File; kind: MergeKind };
 
 export function MergerTool() {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -27,14 +34,34 @@ export function MergerTool() {
 
   const addFiles = (list: FileList | null) => {
     if (!list?.length) return;
-    const next = Array.from(list).map((file) => ({
-      id: `${file.name}-${file.size}-${crypto.randomUUID()}`,
-      file,
-    }));
-    setFiles((prev) => [...prev, ...next]);
-    setResult(null);
-    setError(null);
-    startWipeTimer();
+    const accepted: ListedFile[] = [];
+    const rejected: string[] = [];
+    for (const file of Array.from(list)) {
+      const kind = detectMergeKind(file);
+      if (!kind) {
+        rejected.push(file.name);
+        continue;
+      }
+      accepted.push({
+        id: `${file.name}-${file.size}-${crypto.randomUUID()}`,
+        file,
+        kind,
+      });
+    }
+    if (rejected.length) {
+      setError(
+        rejected.length === 1
+          ? unsupportedMergeMessage(rejected[0])
+          : `Unsupported formats: ${rejected.join(", ")}. Upload PDF, Word (DOC/DOCX), or PowerPoint (PPT/PPTX) only.`
+      );
+    } else {
+      setError(null);
+    }
+    if (accepted.length) {
+      setFiles((prev) => [...prev, ...accepted]);
+      setResult(null);
+      startWipeTimer();
+    }
   };
 
   const move = (index: number, dir: -1 | 1) => {
@@ -51,27 +78,27 @@ export function MergerTool() {
 
   const merge = async () => {
     if (files.length < 2) {
-      setError("Add at least two PDF or Word files to merge.");
+      setError("Add at least two PDF, Word, or PowerPoint files to merge.");
       return;
     }
     setBusy(true);
     setError(null);
     try {
-      for (const step of [15, 40, 65, 85, 100]) {
+      for (const step of [12, 28, 48, 72, 90]) {
         setProgress(step);
-        await sleep(150);
+        await sleep(120);
       }
-      const parts: BlobPart[] = [
-        `Premium Utility Merge\nFiles: ${files.length}\nOrder:\n`,
-      ];
-      for (const [i, item] of files.entries()) {
-        parts.push(`${i + 1}. ${item.file.name} (${formatBytes(item.file.size)})\n`);
-        parts.push(await item.file.arrayBuffer());
-        parts.push("\n---\n");
-      }
-      setResult(new Blob(parts, { type: "application/pdf" }));
-    } catch {
-      setError("Merge failed. Check your files and try again.");
+      const blob = await mergeDocuments(
+        files.map(({ file, kind }) => ({ file, kind }))
+      );
+      setProgress(100);
+      setResult(blob);
+    } catch (e) {
+      setError(
+        e instanceof Error
+          ? e.message
+          : "Merge failed. Check your files and try again."
+      );
     } finally {
       setBusy(false);
     }
@@ -79,27 +106,31 @@ export function MergerTool() {
 
   const download = () => {
     if (!result) return;
-    downloadBlob(result, `merged-${files.length}-docs.pdf`);
+    downloadBlob(result, `merged-${files.length}-files.pdf`);
     markDownloaded();
   };
 
   return (
-    <div className="rounded-[28px] border border-[#E8E2D6] bg-white p-6 sm:p-7">
-      <h3 className="font-[family-name:var(--font-display)] text-lg font-semibold text-[#0F172A]">
+    <div className="rounded-[28px] border border-[#E8E2D6]/80 bg-white/90 p-6 shadow-[0_20px_60px_rgba(15,23,42,0.05)] backdrop-blur-sm sm:p-7">
+      <h3 className="font-[family-name:var(--font-display)] text-lg font-semibold tracking-tight text-[#0F172A]">
         Document Merger
       </h3>
-      <p className="mt-1 text-sm text-[#64748B]">
-        Combine multiple PDFs or Word docs. Reorder the list before merging.
+      <p className="mt-1 text-sm leading-relaxed text-[#64748B]">
+        Merge PDF, Word (DOC/DOCX), and PowerPoint (PPT/PPTX) — reorder, then
+        download one combined PDF.
       </p>
 
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
-        className="mt-5 flex w-full flex-col items-center rounded-[24px] border border-dashed border-[#C5A880]/70 bg-[#FBF9F5] px-4 py-10"
+        className="mt-5 flex w-full flex-col items-center rounded-[24px] border border-dashed border-[#C5A880]/70 bg-gradient-to-b from-[#FBF9F5] to-[#F7F4EE] px-4 py-10 transition hover:border-[#D4AF37]"
       >
         <FileUp className="h-7 w-7 text-[#C5A880]" />
         <p className="mt-3 text-sm font-semibold text-[#0F172A]">
-          Add PDF or Word files
+          Add PDF, Word, or PowerPoint
+        </p>
+        <p className="mt-1 text-xs text-[#94A3B8]">
+          .pdf · .doc · .docx · .ppt · .pptx
         </p>
       </button>
       <input
@@ -107,7 +138,7 @@ export function MergerTool() {
         type="file"
         multiple
         className="hidden"
-        accept=".pdf,.doc,.docx"
+        accept={mergeAcceptAttribute()}
         onChange={(e) => {
           addFiles(e.target.files);
           e.target.value = "";
@@ -119,7 +150,7 @@ export function MergerTool() {
           {files.map((item, index) => (
             <li
               key={item.id}
-              className="flex items-center gap-3 rounded-2xl border border-[#E8E2D6] bg-[#FBF9F5] px-3 py-2.5"
+              className="flex items-center gap-3 rounded-2xl border border-[#E8E2D6]/80 bg-[#FBF9F5]/90 px-3 py-2.5"
             >
               <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#0F172A] text-xs font-semibold text-[#D4AF37]">
                 {index + 1}
@@ -129,7 +160,7 @@ export function MergerTool() {
                   {item.file.name}
                 </p>
                 <p className="text-xs text-[#94A3B8]">
-                  {formatBytes(item.file.size)}
+                  {item.kind.toUpperCase()} · {formatBytes(item.file.size)}
                 </p>
               </div>
               <div className="flex gap-1">
@@ -137,7 +168,7 @@ export function MergerTool() {
                   type="button"
                   aria-label="Move up"
                   onClick={() => move(index, -1)}
-                  className="rounded-lg p-1.5 text-[#64748B] hover:bg-white"
+                  className="rounded-lg p-1.5 text-[#64748B] transition hover:bg-white"
                 >
                   <ArrowUp className="h-4 w-4" />
                 </button>
@@ -145,7 +176,7 @@ export function MergerTool() {
                   type="button"
                   aria-label="Move down"
                   onClick={() => move(index, 1)}
-                  className="rounded-lg p-1.5 text-[#64748B] hover:bg-white"
+                  className="rounded-lg p-1.5 text-[#64748B] transition hover:bg-white"
                 >
                   <ArrowDown className="h-4 w-4" />
                 </button>
@@ -155,7 +186,7 @@ export function MergerTool() {
                   onClick={() =>
                     setFiles((prev) => prev.filter((f) => f.id !== item.id))
                   }
-                  className="rounded-lg p-1.5 text-[#64748B] hover:bg-white hover:text-red-600"
+                  className="rounded-lg p-1.5 text-[#64748B] transition hover:bg-white hover:text-red-600"
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
@@ -174,6 +205,11 @@ export function MergerTool() {
       {error ? (
         <p className="mt-4 text-sm text-red-600" role="alert">
           {error}
+        </p>
+      ) : null}
+      {result ? (
+        <p className="mt-3 text-xs font-medium text-emerald-700">
+          Merged PDF ready · {formatBytes(result.size)} · {files.length} sources
         </p>
       ) : null}
 
@@ -197,7 +233,7 @@ export function MergerTool() {
             variant="outline"
             className="rounded-full border-[#C5A880]"
           >
-            <Download /> Download merged file
+            <Download /> Download merged PDF
           </Button>
         ) : null}
       </div>

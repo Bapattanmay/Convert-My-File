@@ -187,7 +187,7 @@ function escapePdfText(s: string): string {
 }
 
 /** Minimal single-page PDF from plain text lines */
-export function textToPdfBlob(text: string, title = "Premium Utility"): Blob {
+export function textToPdfBlob(text: string, title = "Convert My File"): Blob {
   const lines = text.split(/\r?\n/).slice(0, 60);
   const contentLines = [
     "BT",
@@ -427,7 +427,7 @@ async function extractTextish(file: File, from: FormatId): Promise<string> {
       )
       .slice(0, 400);
     if (texts.length) return texts.join("\n");
-    return `Document: ${file.name}\n(Size ${file.size} bytes)\nConverted via Premium Utility text extraction.`;
+    return `Document: ${file.name}\n(Size ${file.size} bytes)\nConverted via Convert My File text extraction.`;
   }
   if (from === "pdf") {
     const blocks = await extractPdfBlocks(file);

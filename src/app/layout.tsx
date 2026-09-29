@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Premium Utility — Secure ephemeral file tools",
+  title: "Convert My File — Secure ephemeral file tools",
   description:
     "Convert, translate, merge, and resize files in a zero-persistence workspace with a 3-minute secure wipe.",
 };

@@ -82,7 +82,7 @@ export function TranslatorTool() {
       setTranslatedPreview(preview);
       const blob = new Blob(
         [
-          `Premium Utility Translation\nLanguage: ${selectedLabel}\nSource: ${file.name}\n\n${preview}\n`,
+          `Convert My File Translation\nLanguage: ${selectedLabel}\nSource: ${file.name}\n\n${preview}\n`,
         ],
         { type: "text/plain;charset=utf-8" }
       );

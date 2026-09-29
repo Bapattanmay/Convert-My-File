@@ -17,7 +17,7 @@ const TABS = [
 
 export function ToolsSection() {
   return (
-    <section id="tools" className="border-b border-[#E8E2D6] bg-[#FBF9F5]">
+    <section id="tools" className="border-b border-[#E6DFD2]/80">
       <div className="mx-auto max-w-6xl px-5 py-16 sm:px-8 sm:py-20">
         <div className="max-w-2xl">
           <p className="text-xs font-semibold tracking-[0.2em] text-[#C5A880]">
@@ -29,19 +29,19 @@ export function ToolsSection() {
         </div>
 
         <Tabs defaultValue="converter" className="mt-10 gap-6">
-          <TabsList className="flex h-auto w-full flex-wrap justify-start gap-2 rounded-[22px] bg-[#EFEAE1] p-2">
+          <TabsList className="flex h-auto w-full flex-wrap justify-start gap-2 rounded-[22px] bg-[#EFEAE1]/90 p-2 shadow-inner">
             {TABS.map((tab) => (
               <TabsTrigger
                 key={tab.value}
                 value={tab.value}
-                className="rounded-full px-4 py-2.5 text-sm font-semibold text-[#64748B] data-active:bg-[#0F172A] data-active:text-[#D4AF37] data-active:shadow-[0_10px_24px_rgba(15,23,42,0.18)]"
+                className="rounded-full px-4 py-2.5 text-sm font-semibold text-[#64748B] transition data-active:bg-gradient-to-r data-active:from-[#0F172A] data-active:to-[#1E293B] data-active:text-[#D4AF37] data-active:shadow-[0_12px_28px_rgba(15,23,42,0.2)]"
               >
                 {tab.label}
               </TabsTrigger>
             ))}
           </TabsList>
 
-          <div className="rounded-[32px] border border-[#E8E2D6] bg-white p-4 shadow-[0_24px_70px_rgba(15,23,42,0.06)] sm:p-6">
+          <div className="rounded-[32px] border border-[#E6DFD2]/90 bg-white/90 p-4 shadow-[0_28px_80px_rgba(15,23,42,0.07)] backdrop-blur-sm sm:p-6">
             <TabsContent value="converter" className="outline-none">
               <ConverterTool />
             </TabsContent>

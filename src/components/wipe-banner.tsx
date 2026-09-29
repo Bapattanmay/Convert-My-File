@@ -2,10 +2,10 @@ import { Eraser } from "lucide-react";
 
 export function WipeBanner() {
   return (
-    <section className="bg-[#101828]">
-      <div className="mx-auto flex max-w-6xl flex-col gap-4 px-5 py-10 sm:flex-row sm:items-center sm:justify-between sm:px-8">
+    <section className="bg-gradient-to-r from-[#0F172A] via-[#101828] to-[#0F172A]">
+      <div className="mx-auto flex max-w-6xl flex-col gap-4 px-5 py-11 sm:flex-row sm:items-center sm:justify-between sm:px-8">
         <div className="flex items-start gap-4">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#0F172A] text-[#D4AF37] ring-1 ring-[#D4AF37]/30">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#0B1220] text-[#D4AF37] ring-1 ring-[#D4AF37]/35 shadow-[0_0_24px_rgba(212,175,55,0.15)]">
             <Eraser className="h-5 w-5" />
           </span>
           <div>
@@ -21,7 +21,7 @@ export function WipeBanner() {
         </div>
         <a
           href="#tools"
-          className="inline-flex shrink-0 items-center justify-center rounded-full bg-[#D4AF37] px-5 py-3 text-sm font-semibold text-[#0F172A] transition hover:bg-[#C5A880]"
+          className="inline-flex shrink-0 items-center justify-center rounded-full bg-[#D4AF37] px-5 py-3 text-sm font-semibold text-[#0F172A] shadow-[0_10px_30px_rgba(212,175,55,0.25)] transition hover:-translate-y-0.5 hover:bg-[#C5A880]"
         >
           Start a secure job
         </a>

@@ -1,8 +1,8 @@
-# Render Blueprint — Premium Utility (Next.js web service)
+# Render Blueprint — Convert My File (Next.js web service)
 # Requires: GitHub/GitLab repo connected to Render + RENDER_API_KEY for CLI deploys
 services:
   - type: web
-    name: premium-utility
+    name: convert-my-file
     runtime: node
     plan: free
     region: oregon

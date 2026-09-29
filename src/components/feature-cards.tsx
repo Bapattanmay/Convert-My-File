@@ -20,7 +20,7 @@ const FEATURES = [
 
 export function FeatureCards() {
   return (
-    <section className="border-b border-[#E8E2D6] bg-[#FBF9F5]">
+    <section className="border-b border-[#E6DFD2]/80 bg-[#FBF9F5]/60">
       <div className="mx-auto max-w-6xl px-5 py-16 sm:px-8 sm:py-20">
         <div className="max-w-2xl">
           <p className="text-xs font-semibold tracking-[0.2em] text-[#C5A880]">
@@ -30,7 +30,7 @@ export function FeatureCards() {
             File work that leaves no footprint.
           </h2>
           <p className="mt-4 text-base leading-relaxed text-[#64748B]">
-            Premium Utility keeps the ritual simple: upload, shape the result,
+            Convert My File keeps the ritual simple: upload, shape the result,
             preview, download — then the session erases itself.
           </p>
         </div>
@@ -39,10 +39,10 @@ export function FeatureCards() {
           {FEATURES.map((feature, index) => (
             <article
               key={feature.title}
-              className="group rounded-[28px] border border-[#E8E2D6] bg-white p-7 shadow-[0_18px_50px_rgba(15,23,42,0.04)] transition duration-300 hover:-translate-y-1 hover:border-[#C5A880]/60 hover:shadow-[0_24px_60px_rgba(15,23,42,0.08)]"
+              className="group rounded-[28px] border border-[#E6DFD2]/90 bg-white/90 p-7 shadow-[0_18px_50px_rgba(15,23,42,0.05)] backdrop-blur-sm transition duration-300 hover:-translate-y-1 hover:border-[#C5A880]/70 hover:shadow-[0_26px_64px_rgba(15,23,42,0.1)]"
               style={{ animationDelay: `${index * 80}ms` }}
             >
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#0F172A] text-[#D4AF37] transition group-hover:scale-105">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-[#0F172A] to-[#1E293B] text-[#D4AF37] shadow-[0_10px_24px_rgba(15,23,42,0.18)] transition group-hover:scale-105">
                 <feature.icon className="h-5 w-5" strokeWidth={1.75} />
               </div>
               <h3 className="mt-6 font-[family-name:var(--font-display)] text-xl font-semibold text-[#0F172A]">

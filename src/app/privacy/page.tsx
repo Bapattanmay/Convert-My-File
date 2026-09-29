@@ -13,7 +13,7 @@ export default function PrivacyPage() {
 
       <div className="mt-10 space-y-6 text-[15px] leading-relaxed text-[#334155]">
         <p>
-          Premium Utility is built around zero persistence. File contents
+          Convert My File is built around zero persistence. File contents
           processed in the browser workspace are not uploaded to a long-term
           archive and are discarded when you download or when the three-minute
           wipe completes.
