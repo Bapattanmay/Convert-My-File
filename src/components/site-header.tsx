@@ -49,7 +49,16 @@ export function SiteHeader() {
 
           {!loading && user ? (
             <div className="flex items-center gap-2">
-              <span className="hidden max-w-[140px] truncate text-xs font-semibold text-[#475569] sm:inline">
+              {user.picture ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={user.picture}
+                  alt=""
+                  className="hidden h-8 w-8 rounded-full ring-1 ring-[#E6DFD2] sm:block"
+                  referrerPolicy="no-referrer"
+                />
+              ) : null}
+              <span className="hidden max-w-[160px] truncate text-xs font-semibold text-[#475569] sm:inline">
                 {user.name}
               </span>
               <button

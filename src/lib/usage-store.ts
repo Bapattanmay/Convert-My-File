@@ -15,6 +15,9 @@ export type LocationInfo = {
 export type UsageSession = {
   id: string;
   name: string;
+  email?: string;
+  picture?: string;
+  googleSub?: string;
   createdAt: string;
   lastSeenAt: string;
   /** Accumulated active seconds from heartbeats */
@@ -52,16 +55,23 @@ function writeStore(store: StoreShape) {
   fs.writeFileSync(STORE_PATH, JSON.stringify(store, null, 2));
 }
 
+/** @deprecated Name-only login removed — Google OAuth required. */
 export function createSession(input: {
   name: string;
   location: LocationInfo;
   userAgent?: string;
+  email?: string;
+  picture?: string;
+  googleSub?: string;
 }): UsageSession {
   const store = ensureStore();
   const now = new Date().toISOString();
   const session: UsageSession = {
     id: crypto.randomUUID(),
-    name: input.name.trim().slice(0, 80),
+    name: input.name.trim().slice(0, 120),
+    email: input.email?.slice(0, 200),
+    picture: input.picture?.slice(0, 500),
+    googleSub: input.googleSub?.slice(0, 120),
     createdAt: now,
     lastSeenAt: now,
     timeSpentSeconds: 0,
@@ -70,10 +80,49 @@ export function createSession(input: {
     userAgent: input.userAgent?.slice(0, 300),
   };
   store.sessions.unshift(session);
-  // Cap growth
   if (store.sessions.length > 5000) store.sessions.length = 5000;
   writeStore(store);
   return session;
+}
+
+/** Create or refresh a usage row keyed by Google subject. */
+export function upsertGoogleSession(input: {
+  googleSub: string;
+  name: string;
+  email: string;
+  picture?: string;
+  userAgent?: string;
+}): UsageSession {
+  const store = ensureStore();
+  const now = new Date().toISOString();
+  const idx = store.sessions.findIndex(
+    (s) =>
+      (input.googleSub && s.googleSub === input.googleSub) ||
+      (input.email && s.email === input.email)
+  );
+  if (idx >= 0) {
+    const s = store.sessions[idx];
+    s.name = input.name.trim().slice(0, 120);
+    s.email = input.email.slice(0, 200);
+    s.picture = input.picture?.slice(0, 500) || s.picture;
+    s.googleSub = input.googleSub.slice(0, 120);
+    s.lastSeenAt = now;
+    if (input.userAgent) s.userAgent = input.userAgent.slice(0, 300);
+    store.sessions[idx] = s;
+    // Move to front
+    store.sessions.splice(idx, 1);
+    store.sessions.unshift(s);
+    writeStore(store);
+    return s;
+  }
+  return createSession({
+    name: input.name,
+    email: input.email,
+    picture: input.picture,
+    googleSub: input.googleSub,
+    location: { source: "unknown" },
+    userAgent: input.userAgent,
+  });
 }
 
 export function getSession(id: string): UsageSession | null {

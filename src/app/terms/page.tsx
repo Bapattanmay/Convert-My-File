@@ -15,22 +15,24 @@ export default function TermsPage() {
         <p>
           By using Convert My File you agree to these Terms. Core conversion,
           translation, merge, and size tools are offered on an as-is basis for
-          lawful personal and business use. You must log in (provide a display
-          name and accept these Terms and the Privacy Policy) before using
+          lawful personal and business use. You must sign in with a Google
+          account and accept these Terms and the Privacy Policy before using
           Converter, Translator, Merger, or Compressor.
         </p>
 
         <h2 className="font-[family-name:var(--font-display)] text-xl font-semibold text-[#0F172A]">
-          Login and usage analytics
+          Google sign-in and usage analytics
         </h2>
         <p>
-          Access to the workspace tools requires Login. When you log in, you
-          consent to Convert My File collecting and storing: (1) the name you
-          enter; (2) time spent on the platform while signed in; (3) which
-          features you use (Converter, Translator, Merger, Compressor); and
-          (4) approximate location derived from browser geolocation (if you
-          allow it) and/or your IP address. This data is used for platform
-          operation, abuse prevention, and owner analytics. Details are in the{" "}
+          Access to the workspace tools requires Google OAuth Login. When you
+          sign in, you consent to Convert My File receiving from Google (via
+          Auth.js / NextAuth) your account name, email address, and profile
+          picture when available, and to our collecting: time spent on the
+          platform while signed in; which features you use (Converter,
+          Translator, Merger, Compressor); and approximate location derived from
+          browser geolocation (if you allow it) and/or your IP address. This
+          data is used for platform operation, abuse prevention, and owner
+          analytics. Details are in the{" "}
           <Link href="/privacy" className="font-semibold text-[#0F172A] underline">
             Privacy Policy
           </Link>
@@ -44,7 +46,7 @@ export default function TermsPage() {
           Uploaded file contents are handled in session memory for the active
           job. Files are wiped after download or automatically within three
           minutes if not retrieved. You are responsible for retaining copies of
-          any outputs you need. Usage analytics described above are separate
+          any outputs you need. Google identity and usage analytics are separate
           from file contents and may be retained longer on the server.
         </p>
 
@@ -53,8 +55,8 @@ export default function TermsPage() {
         </h2>
         <p>
           Do not upload content you are not authorized to process, malware, or
-          material that violates applicable law. Do not attempt to bypass Login,
-          impersonate others, or abuse the service.
+          material that violates applicable law. Do not attempt to bypass Google
+          Login, impersonate others, or abuse the service.
         </p>
 
         <h2 className="font-[family-name:var(--font-display)] text-xl font-semibold text-[#0F172A]">

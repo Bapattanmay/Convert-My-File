@@ -1,7 +1,6 @@
 /**
- * Login gate + admin dashboard E2E proof script.
+ * Google Login gate + admin dashboard E2E (no real Google OAuth without secrets).
  * Run with: node scripts/e2e-login-admin.cjs
- * Requires: npm run dev on 127.0.0.1:43127, playwright installed.
  */
 const { chromium } = require("playwright");
 const fs = require("fs");
@@ -15,8 +14,6 @@ async function main() {
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({
     viewport: { width: 1280, height: 800 },
-    geolocation: { latitude: 13.0827, longitude: 80.2707 },
-    permissions: ["geolocation"],
   });
   const page = await context.newPage();
   const results = [];
@@ -28,89 +25,98 @@ async function main() {
 
   await page.goto(BASE, { waitUntil: "networkidle" });
 
-  // 1) Login button rename
   const loginBtn = page.getByRole("button", { name: "Login" }).first();
-  assert(await loginBtn.isVisible(), "Header shows Login (not RECOGNIZE ID)");
-  const recognize = await page.getByText("RECOGNIZE ID").count();
-  assert(recognize === 0, "No RECOGNIZE ID on home");
+  assert(await loginBtn.isVisible(), "Header shows Login");
+  assert(
+    (await page.getByText("RECOGNIZE ID").count()) === 0,
+    "No RECOGNIZE ID on home"
+  );
 
-  // 2) Gate visible
   await page.locator("#tools").scrollIntoViewIfNeeded();
   assert(
-    await page.getByText("Login required").isVisible(),
-    "Tools gated with Login required"
+    await page.getByText("Google login required").isVisible(),
+    "Tools gated with Google login required"
   );
   await page.screenshot({
-    path: path.join(OUT, "login-gate-locked.png"),
+    path: path.join(OUT, "google-gate-locked.png"),
     fullPage: false,
   });
 
-  // 3) Login
   await loginBtn.click();
-  await page.getByLabel("Your name").fill("E2E Proof User");
-  await page.locator('input[type="checkbox"]').check();
-  await page.getByRole("button", { name: "Continue to workspace" }).click();
-  await page.waitForTimeout(800);
   assert(
-    await page.getByText("E2E Proof User").isVisible(),
-    "Header shows logged-in name"
+    await page.getByText("Login with Google").isVisible(),
+    "Dialog title is Login with Google"
   );
   assert(
-    (await page.getByText("Login required").count()) === 0,
-    "Gate overlay removed after login"
+    await page.getByRole("button", { name: /Continue with Google/i }).isVisible(),
+    "Continue with Google button visible"
+  );
+  // Name-only field must be gone
+  assert(
+    (await page.getByLabel("Your name").count()) === 0,
+    "Name-only login field removed"
+  );
+
+  // Without accepting terms, Google click shows error
+  await page.getByRole("button", { name: /Continue with Google/i }).click();
+  await page.waitForTimeout(400);
+  assert(
+    await page.getByText(/accept the Terms/i).isVisible(),
+    "Requires Terms acceptance"
+  );
+
+  await page.locator('input[type="checkbox"]').check();
+  await page.getByRole("button", { name: /Continue with Google/i }).click();
+  await page.waitForTimeout(800);
+  // Either redirects toward Google, or shows not-configured notice
+  const notConfigured = await page
+    .getByText(/not configured|GOOGLE_CLIENT/i)
+    .count();
+  const url = page.url();
+  assert(
+    notConfigured > 0 ||
+      url.includes("accounts.google.com") ||
+      url.includes("/api/auth"),
+    "Google flow starts or shows missing-credentials notice"
   );
   await page.screenshot({
-    path: path.join(OUT, "login-gate-unlocked.png"),
+    path: path.join(OUT, "google-login-dialog.png"),
     fullPage: false,
   });
 
-  // 4) Track features via tabs
-  await page.getByRole("tab", { name: "Translator" }).click();
-  await page.waitForTimeout(400);
-  await page.getByRole("tab", { name: "Merger" }).click();
-  await page.waitForTimeout(400);
-  await page.getByRole("tab", { name: "Compressor" }).click();
-  await page.waitForTimeout(400);
-
-  // Heartbeat once
-  await page.request.post(BASE + "/api/track", {
-    data: { seconds: 30, feature: "compressor" },
+  // Name-only API removed
+  const legacy = await page.request.post(BASE + "/api/auth/login", {
+    data: { name: "Should Fail" },
   });
+  assert(legacy.status() === 410, "Legacy name login returns 410");
 
-  // 5) Admin dashboard
+  // Admin still works with hardcoded owner creds
   await page.goto(BASE + "/admin", { waitUntil: "networkidle" });
+  if (await page.getByText("Usage dashboard").count()) {
+    await page.getByRole("button", { name: "Log out" }).last().click();
+    await page.waitForTimeout(500);
+  }
   await page.getByLabel("Username").fill("bapattanmay@gmail.com");
   await page.getByLabel("Password").fill("Bapattanmay@12345");
   await page.getByRole("button", { name: "Sign in" }).click();
   await page.waitForTimeout(800);
   assert(
     await page.getByText("Usage dashboard").isVisible(),
-    "Admin dashboard visible"
+    "Admin dashboard with owner credentials"
   );
-  assert(
-    await page.getByRole("cell", { name: /E2E Proof User/ }).first().isVisible(),
-    "Admin shows E2E Proof User session"
-  );
-  const body = await page.locator("table").innerText();
-  assert(/translator|merger|compressor|converter/i.test(body), "Features listed");
   await page.screenshot({
-    path: path.join(OUT, "admin-usage-dashboard.png"),
+    path: path.join(OUT, "admin-after-google-gate.png"),
     fullPage: true,
   });
 
-  // Privacy disclosure
   await page.goto(BASE + "/privacy", { waitUntil: "networkidle" });
   assert(
-    await page.getByText("What we collect after Login").isVisible(),
-    "Privacy discloses Login analytics"
+    await page.getByText("Google sign-in").first().isVisible(),
+    "Privacy discloses Google sign-in"
   );
-  await page.screenshot({
-    path: path.join(OUT, "privacy-disclosure.png"),
-    fullPage: false,
-  });
 
   fs.writeFileSync(
-    path.join(OUT, "login-admin-e2e-results.txt"),
+    path.join(OUT, "google-gate-e2e-results.txt"),
     results.join("\n") + "\n"
   );
   console.log(results.join("\n"));

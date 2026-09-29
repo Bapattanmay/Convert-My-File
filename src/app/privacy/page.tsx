@@ -14,18 +14,30 @@ export default function PrivacyPage() {
       <div className="mt-10 space-y-6 text-[15px] leading-relaxed text-[#334155]">
         <p>
           Convert My File processes file contents ephemerally in your browser
-          session, while separately collecting limited usage analytics after
-          Login so the platform owner can understand how the tools are used.
+          session, while separately collecting Google account identity and
+          limited usage analytics after sign-in so the platform owner can
+          understand how the tools are used.
+        </p>
+
+        <h2 className="font-[family-name:var(--font-display)] text-xl font-semibold text-[#0F172A]">
+          Google sign-in
+        </h2>
+        <p>
+          Workspace tools require signing in with Google (OAuth 2.0 via Auth.js /
+          NextAuth). Google authenticates you; we do not receive your Google
+          password. From Google we receive identity details you authorize,
+          typically: name, email address, and profile picture URL, plus a stable
+          Google account subject identifier.
         </p>
 
         <h2 className="font-[family-name:var(--font-display)] text-xl font-semibold text-[#0F172A]">
           What we collect after Login
         </h2>
-        <p>When you log in and use the workspace, we collect and store:</p>
         <ul className="list-disc space-y-2 pl-5">
           <li>
-            <strong className="font-semibold text-[#0F172A]">Name</strong> —
-            the display name you enter at Login (not verified identity).
+            <strong className="font-semibold text-[#0F172A]">Google identity</strong>{" "}
+            — name, email, profile picture (when provided by Google), and Google
+            subject id.
           </li>
           <li>
             <strong className="font-semibold text-[#0F172A]">Time spent</strong>{" "}
@@ -61,8 +73,9 @@ export default function PrivacyPage() {
         </h2>
         <p>
           Analytics support platform operation, product improvement, abuse
-          prevention, and an owner-only admin dashboard that shows aggregated
-          and per-session usage (name, location, features, time spent).
+          prevention, and an owner-only admin dashboard that shows per-session
+          usage (Google identity, location, features, time spent). Admin access
+          is separate from Google Login and uses owner credentials.
         </p>
 
         <h2 className="font-[family-name:var(--font-display)] text-xl font-semibold text-[#0F172A]">
@@ -81,17 +94,18 @@ export default function PrivacyPage() {
           Cookies
         </h2>
         <p>
-          We set an HTTP-only session cookie after Login to keep you signed in.
-          Admin authentication uses a separate HTTP-only cookie.
+          Auth.js / NextAuth sets session cookies after Google Login. Admin
+          authentication uses a separate HTTP-only cookie.
         </p>
 
         <h2 className="font-[family-name:var(--font-display)] text-xl font-semibold text-[#0F172A]">
           Your choices
         </h2>
         <p>
-          You may decline Login and browse informational pages, but tools will
-          remain locked. You may deny browser geolocation; we then rely on
-          IP-based approximation only. You may log out at any time.
+          You may decline Google Login and browse informational pages, but tools
+          will remain locked. You may deny browser geolocation; we then rely on
+          IP-based approximation only. You may log out at any time. You may
+          revoke Convert My File access from your Google Account permissions.
         </p>
 
         <h2 className="font-[family-name:var(--font-display)] text-xl font-semibold text-[#0F172A]">

@@ -1,5 +1,4 @@
 # Render Blueprint — Convert My File (Next.js web service)
-# Requires: GitHub/GitLab repo connected to Render + RENDER_API_KEY for CLI deploys
 services:
   - type: web
     name: convert-my-file
@@ -18,5 +17,16 @@ services:
         value: Bapattanmay@12345
       - key: SESSION_SECRET
         value: convert-my-file-prod-session-secret-2026
+      - key: AUTH_SECRET
+        value: convert-my-file-prod-auth-secret-2026
+      - key: NEXTAUTH_SECRET
+        value: convert-my-file-prod-auth-secret-2026
+      - key: NEXTAUTH_URL
+        value: https://convert-my-file-oo3r.onrender.com
+      - key: AUTH_URL
+        value: https://convert-my-file-oo3r.onrender.com
       - key: DATA_DIR
         value: /opt/render/project/src/data
+      # Set in Render dashboard / API (do not leave empty in production):
+      # GOOGLE_CLIENT_ID
+      # GOOGLE_CLIENT_SECRET

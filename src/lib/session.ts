@@ -1,25 +1,27 @@
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
+import { auth } from "@/auth";
 
 const USER_COOKIE = "cmf_session";
 const ADMIN_COOKIE = "cmf_admin";
 
 function secretKey() {
   const secret =
-    process.env.SESSION_SECRET || "convert-my-file-dev-secret-change-me";
+    process.env.SESSION_SECRET ||
+    process.env.AUTH_SECRET ||
+    process.env.NEXTAUTH_SECRET ||
+    "convert-my-file-dev-secret-change-me";
   return new TextEncoder().encode(secret);
 }
 
-export type UserToken = { sid: string; name: string; role: "user" };
+export type UserToken = {
+  sid: string;
+  name: string;
+  role: "user";
+  email?: string;
+  picture?: string;
+};
 export type AdminToken = { role: "admin"; sub: string };
-
-export async function signUserToken(payload: UserToken): Promise<string> {
-  return new SignJWT({ ...payload })
-    .setProtectedHeader({ alg: "HS256" })
-    .setIssuedAt()
-    .setExpirationTime("7d")
-    .sign(secretKey());
-}
 
 export async function signAdminToken(sub: string): Promise<string> {
   return new SignJWT({ role: "admin", sub })
@@ -27,22 +29,6 @@ export async function signAdminToken(sub: string): Promise<string> {
     .setIssuedAt()
     .setExpirationTime("12h")
     .sign(secretKey());
-}
-
-export async function verifyUserToken(
-  token: string
-): Promise<UserToken | null> {
-  try {
-    const { payload } = await jwtVerify(token, secretKey());
-    if (payload.role !== "user" || typeof payload.sid !== "string") return null;
-    return {
-      sid: payload.sid,
-      name: String(payload.name || ""),
-      role: "user",
-    };
-  } catch {
-    return null;
-  }
 }
 
 export async function verifyAdminToken(
@@ -57,11 +43,19 @@ export async function verifyAdminToken(
   }
 }
 
+/** Prefer Google / Auth.js session; legacy name cookie is no longer issued. */
 export async function readUserSession(): Promise<UserToken | null> {
-  const jar = await cookies();
-  const token = jar.get(USER_COOKIE)?.value;
-  if (!token) return null;
-  return verifyUserToken(token);
+  const session = await auth();
+  if (session?.usageSessionId) {
+    return {
+      sid: session.usageSessionId,
+      name: session.user?.name || "",
+      email: session.user?.email || undefined,
+      picture: session.user?.image || undefined,
+      role: "user",
+    };
+  }
+  return null;
 }
 
 export async function readAdminSession(): Promise<AdminToken | null> {

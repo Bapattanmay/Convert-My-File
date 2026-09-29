@@ -10,6 +10,9 @@ import { Label } from "@/components/ui/label";
 type SessionRow = {
   id: string;
   name: string;
+  email?: string;
+  picture?: string;
+  googleSub?: string;
   createdAt: string;
   lastSeenAt: string;
   timeSpentSeconds: number;
@@ -253,9 +256,28 @@ export default function AdminPage() {
                   className="border-b border-[#F1EDE4] last:border-0"
                 >
                   <td className="px-4 py-3 font-medium text-[#0F172A]">
-                    {s.name}
-                    <div className="mt-0.5 text-[11px] font-normal text-[#94A3B8]">
-                      {new Date(s.createdAt).toLocaleString()}
+                    <div className="flex items-center gap-2">
+                      {s.picture ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={s.picture}
+                          alt=""
+                          className="h-8 w-8 rounded-full ring-1 ring-[#E6DFD2]"
+                          referrerPolicy="no-referrer"
+                        />
+                      ) : null}
+                      <div>
+                        <div>{s.name}</div>
+                        {s.email ? (
+                          <div className="text-[11px] font-normal text-[#64748B]">
+                            {s.email}
+                          </div>
+                        ) : null}
+                        <div className="mt-0.5 text-[11px] font-normal text-[#94A3B8]">
+                          {new Date(s.createdAt).toLocaleString()}
+                          {s.googleSub ? " · Google" : ""}
+                        </div>
+                      </div>
                     </div>
                   </td>
                   <td className="px-4 py-3 text-[#475569]">

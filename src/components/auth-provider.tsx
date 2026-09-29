@@ -9,10 +9,13 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { SessionProvider, signIn, signOut, useSession } from "next-auth/react";
 
 export type AuthUser = {
   id: string;
   name: string;
+  email?: string;
+  picture?: string;
   timeSpentSeconds: number;
   featuresUsed: string[];
   location: {
@@ -28,7 +31,8 @@ type AuthContextValue = {
   loading: boolean;
   loginOpen: boolean;
   setLoginOpen: (open: boolean) => void;
-  login: (name: string) => Promise<{ ok: true } | { ok: false; error: string }>;
+  googleConfigured: boolean;
+  signInWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
   trackFeature: (feature: string) => void;
   requireLogin: () => boolean;
@@ -62,15 +66,23 @@ async function readGeo(): Promise<{
   }
 }
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+function AuthInner({ children }: { children: ReactNode }) {
+  const { data: session, status } = useSession();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [loginOpen, setLoginOpen] = useState(false);
+  const [googleConfigured, setGoogleConfigured] = useState(true);
 
-  const refresh = useCallback(async () => {
+  const refreshUsage = useCallback(async () => {
     try {
       const res = await fetch("/api/auth/me", { credentials: "include" });
-      const data = (await res.json()) as { user: AuthUser | null };
+      const data = (await res.json()) as {
+        user: AuthUser | null;
+        googleConfigured?: boolean;
+      };
+      if (typeof data.googleConfigured === "boolean") {
+        setGoogleConfigured(data.googleConfigured);
+      }
       setUser(data.user);
     } catch {
       setUser(null);
@@ -80,8 +92,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    if (status === "loading") return;
+    void refreshUsage();
+  }, [status, session?.usageSessionId, refreshUsage]);
+
+  const syncLocation = useEffectEvent(async () => {
+    if (!session?.usageSessionId) return;
+    const geo = await readGeo();
+    await fetch("/api/track", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(
+        geo.geoGranted
+          ? {
+              latitude: geo.latitude,
+              longitude: geo.longitude,
+              syncIpLocation: true,
+            }
+          : { syncIpLocation: true }
+      ),
+    }).catch(() => {});
+    void refreshUsage();
+  });
+
+  useEffect(() => {
+    if (session?.usageSessionId) {
+      void syncLocation();
+    }
+  }, [session?.usageSessionId]);
 
   const heartbeat = useEffectEvent(() => {
     if (!user) return;
@@ -108,43 +147,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => window.clearInterval(id);
   }, [user]);
 
-  const login = useCallback(async (name: string) => {
-    const geo = await readGeo();
-    const res = await fetch("/api/auth/login", {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name,
-        latitude: geo.latitude,
-        longitude: geo.longitude,
-        geoGranted: geo.geoGranted,
-      }),
-    });
-    const data = (await res.json()) as {
-      ok?: boolean;
-      error?: string;
-      session?: { id: string; name: string; location: AuthUser["location"] };
-    };
-    if (!res.ok || !data.session) {
-      return { ok: false as const, error: data.error || "Login failed." };
+  const signInWithGoogle = useCallback(async () => {
+    if (!googleConfigured) {
+      throw new Error(
+        "Google sign-in is not configured yet. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET."
+      );
     }
-    setUser({
-      id: data.session.id,
-      name: data.session.name,
-      timeSpentSeconds: 0,
-      featuresUsed: [],
-      location: data.session.location,
-    });
-    setLoginOpen(false);
-    return { ok: true as const };
-  }, []);
+    await signIn("google", { callbackUrl: "/" });
+  }, [googleConfigured]);
 
   const logout = useCallback(async () => {
-    await fetch("/api/auth/logout", {
-      method: "POST",
-      credentials: "include",
-    });
+    await signOut({ callbackUrl: "/" });
     setUser(null);
   }, []);
 
@@ -178,10 +191,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     <AuthContext.Provider
       value={{
         user,
-        loading,
+        loading: loading || status === "loading",
         loginOpen,
         setLoginOpen,
-        login,
+        googleConfigured,
+        signInWithGoogle,
         logout,
         trackFeature,
         requireLogin,
@@ -189,6 +203,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     >
       {children}
     </AuthContext.Provider>
+  );
+}
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  return (
+    <SessionProvider>
+      <AuthInner>{children}</AuthInner>
+    </SessionProvider>
   );
 }
 

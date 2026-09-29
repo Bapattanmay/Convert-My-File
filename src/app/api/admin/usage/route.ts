@@ -11,6 +11,9 @@ export async function GET() {
   const sessions = listSessions().map((s) => ({
     id: s.id,
     name: s.name,
+    email: s.email,
+    picture: s.picture,
+    googleSub: s.googleSub,
     createdAt: s.createdAt,
     lastSeenAt: s.lastSeenAt,
     timeSpentSeconds: s.timeSpentSeconds,

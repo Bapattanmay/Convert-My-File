@@ -35,12 +35,12 @@ function GateOverlay() {
       </span>
       <div>
         <p className="font-[family-name:var(--font-display)] text-lg font-bold text-[#0F172A]">
-          Login required
+          Google login required
         </p>
         <p className="mt-2 max-w-sm text-sm text-[#64748B]">
-          Sign in with your name to use Converter, Translator, Merger, and
-          Compressor. Usage time, features, and approximate location are
-          recorded per our Privacy Policy.
+          Sign in with Google to use Converter, Translator, Merger, and
+          Compressor. We record your Google identity, usage time, features, and
+          approximate location per our Privacy Policy.
         </p>
       </div>
       <button
@@ -75,8 +75,8 @@ export function ToolsSection() {
           </h2>
           {gated ? (
             <p className="mt-3 text-sm text-[#64748B]">
-              Tools unlock after Login. Your name and usage analytics help us
-              improve the platform.
+              Tools unlock after Google Login. Identity and usage analytics help
+              us operate and improve the platform.
             </p>
           ) : null}
         </div>
@@ -122,9 +122,9 @@ export function ToolsSection() {
                   Premium desk
                 </h3>
                 <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-[#64748B]">
-                  Login unlocks the core workspace. Premium adds priority
-                  queues, batch jobs, and signed wipe receipts — UI-ready and
-                  awaiting identity binding.
+                  Google Login unlocks the core workspace. Premium adds priority
+                  queues, batch jobs, and signed wipe receipts — UI-ready for
+                  deeper identity features.
                 </p>
                 {!user ? (
                   <button

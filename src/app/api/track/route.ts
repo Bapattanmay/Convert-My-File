@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { readUserSession } from "@/lib/session";
 import { touchSession } from "@/lib/usage-store";
+import { clientIp, lookupIpLocation } from "@/lib/geo";
 
 export async function POST(req: Request) {
   const token = await readUserSession();
@@ -13,7 +14,49 @@ export async function POST(req: Request) {
     seconds?: number;
     latitude?: number;
     longitude?: number;
+    syncIpLocation?: boolean;
   } | null;
+
+  let locationPatch:
+    | {
+        source: "browser_geolocation" | "ip_approximate";
+        latitude?: number;
+        longitude?: number;
+        city?: string;
+        region?: string;
+        country?: string;
+        ip?: string;
+      }
+    | undefined;
+
+  if (
+    typeof body?.latitude === "number" &&
+    typeof body?.longitude === "number"
+  ) {
+    const ip = clientIp(req.headers);
+    const ipLoc = await lookupIpLocation(ip);
+    locationPatch = {
+      source: "browser_geolocation",
+      latitude: body.latitude,
+      longitude: body.longitude,
+      city: ipLoc.city,
+      region: ipLoc.region,
+      country: ipLoc.country,
+      ip: ipLoc.ip || ip,
+    };
+  } else if (body?.syncIpLocation) {
+    const ip = clientIp(req.headers);
+    const ipLoc = await lookupIpLocation(ip);
+    locationPatch = {
+      source: (ipLoc.source || "ip_approximate") as "ip_approximate",
+      latitude: ipLoc.latitude,
+      longitude: ipLoc.longitude,
+      city: ipLoc.city,
+      region: ipLoc.region,
+      country: ipLoc.country,
+      ip: ipLoc.ip || ip,
+    };
+  }
 
   const updated = touchSession(token.sid, {
     feature: body?.feature,
@@ -21,14 +64,7 @@ export async function POST(req: Request) {
       typeof body?.seconds === "number" && body.seconds > 0
         ? body.seconds
         : undefined,
-    location:
-      typeof body?.latitude === "number" && typeof body?.longitude === "number"
-        ? {
-            source: "browser_geolocation",
-            latitude: body.latitude,
-            longitude: body.longitude,
-          }
-        : undefined,
+    location: locationPatch,
   });
 
   if (!updated) {
@@ -39,5 +75,6 @@ export async function POST(req: Request) {
     ok: true,
     timeSpentSeconds: updated.timeSpentSeconds,
     featuresUsed: updated.featuresUsed,
+    location: updated.location,
   });
 }
