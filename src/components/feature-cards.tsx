@@ -9,7 +9,7 @@ const FEATURES = [
   {
     icon: ShieldOff,
     title: "Zero persistence",
-    body: "No accounts required for core tools. Uploads live in memory, then vanish on download or after the three-minute wipe.",
+    body: "Google Login unlocks tools; file bytes stay in memory and vanish on download or after the three-minute wipe — not archived with your account.",
   },
   {
     icon: Layers3,
