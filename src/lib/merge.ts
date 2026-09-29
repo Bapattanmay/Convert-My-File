@@ -1,6 +1,10 @@
 /** Multi-format document merger → combined PDF */
 
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import {
+  extractDocxContent,
+  extractPptxText,
+} from "@/lib/office-extract";
 
 export type MergeKind = "pdf" | "doc" | "docx" | "ppt" | "pptx";
 
@@ -31,59 +35,6 @@ export function mergeAcceptAttribute(): string {
 
 export function unsupportedMergeMessage(name: string): string {
   return `This file format is not supported for merge (${name}). Upload PDF, Word (DOC/DOCX), or PowerPoint (PPT/PPTX) only.`;
-}
-
-async function extractDocxText(file: File): Promise<string> {
-  const JSZip = (await import("jszip")).default;
-  const zip = await JSZip.loadAsync(await file.arrayBuffer());
-  const xml = await zip.file("word/document.xml")?.async("string");
-  if (!xml) {
-    // Legacy .doc — best-effort binary text scrape
-    const raw = new TextDecoder("utf-8", { fatal: false }).decode(
-      new Uint8Array(await file.arrayBuffer())
-    );
-    const bits = [...raw.matchAll(/[A-Za-z0-9][A-Za-z0-9 ,.;:'"()\-\/&%]{3,}/g)]
-      .map((m) => m[0])
-      .filter((t) => !/^[\d\s]+$/.test(t))
-      .slice(0, 400);
-    return bits.join(" ") || `(No extractable text in ${file.name})`;
-  }
-  return [...xml.matchAll(/<w:t[^>]*>([^<]*)<\/w:t>/g)]
-    .map((m) => m[1])
-    .join(" ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-async function extractPptxText(file: File): Promise<string> {
-  const JSZip = (await import("jszip")).default;
-  const zip = await JSZip.loadAsync(await file.arrayBuffer());
-  const slides = Object.keys(zip.files)
-    .filter((p) => /^ppt\/slides\/slide\d+\.xml$/i.test(p))
-    .sort((a, b) => {
-      const na = Number(/slide(\d+)/i.exec(a)?.[1] || 0);
-      const nb = Number(/slide(\d+)/i.exec(b)?.[1] || 0);
-      return na - nb;
-    });
-
-  if (!slides.length) {
-    const raw = new TextDecoder("utf-8", { fatal: false }).decode(
-      new Uint8Array(await file.arrayBuffer())
-    );
-    const bits = [...raw.matchAll(/[A-Za-z0-9][A-Za-z0-9 ,.;:'"()\-\/&%]{3,}/g)]
-      .map((m) => m[0])
-      .slice(0, 300);
-    return bits.join(" ") || `(No extractable text in ${file.name})`;
-  }
-
-  const parts: string[] = [];
-  for (const path of slides) {
-    const xml = await zip.file(path)!.async("string");
-    const texts = [...xml.matchAll(/<a:t[^>]*>([^<]*)<\/a:t>/g)].map((m) => m[1]);
-    const slideNo = /slide(\d+)/i.exec(path)?.[1] || "?";
-    parts.push(`Slide ${slideNo}: ${texts.join(" ").replace(/\s+/g, " ").trim()}`);
-  }
-  return parts.join("\n\n");
 }
 
 async function addTextPages(
@@ -168,12 +119,19 @@ export async function mergeDocuments(inputs: MergeInput[]): Promise<Blob> {
     }
 
     let text = "";
-    if (kind === "docx" || kind === "doc") {
-      text = await extractDocxText(file);
-    } else if (kind === "pptx" || kind === "ppt") {
-      text = await extractPptxText(file);
-    } else {
-      text = `(Could not parse ${file.name})`;
+    try {
+      if (kind === "docx" || kind === "doc") {
+        text = (await extractDocxContent(file)).text;
+      } else if (kind === "pptx" || kind === "ppt") {
+        text = await extractPptxText(file);
+      } else {
+        text = `(Could not parse ${file.name})`;
+      }
+    } catch (e) {
+      text =
+        e instanceof Error
+          ? e.message
+          : `(Could not extract text from ${file.name})`;
     }
     await addTextPages(
       merged,

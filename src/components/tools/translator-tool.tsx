@@ -54,7 +54,34 @@ export function TranslatorTool() {
       setTranslatedPreview("");
       setFile(picked);
       startWipeTimer();
-      setSourcePreview(await readAsTextPreview(picked));
+      try {
+        const name = picked.name.toLowerCase();
+        if (name.endsWith(".docx") || name.endsWith(".doc")) {
+          const { extractDocxContent } = await import("@/lib/office-extract");
+          const { text } = await extractDocxContent(picked);
+          setSourcePreview(text.slice(0, 2000));
+        } else if (name.endsWith(".pdf")) {
+          const { extractPdfBlocks, blocksToPlainText } = await import(
+            "@/lib/pdf-extract"
+          );
+          const blocks = await extractPdfBlocks(picked);
+          setSourcePreview(blocksToPlainText(blocks).slice(0, 2000));
+        } else if (name.endsWith(".xlsx") || name.endsWith(".xls")) {
+          const XLSX = await import("xlsx");
+          const wb = XLSX.read(await picked.arrayBuffer(), { type: "array" });
+          const sheet = wb.Sheets[wb.SheetNames[0]];
+          const csv = sheet ? XLSX.utils.sheet_to_csv(sheet) : "";
+          setSourcePreview(csv.slice(0, 2000) || (await readAsTextPreview(picked)));
+        } else {
+          setSourcePreview(await readAsTextPreview(picked));
+        }
+      } catch (e) {
+        setSourcePreview(
+          e instanceof Error
+            ? e.message
+            : await readAsTextPreview(picked)
+        );
+      }
     },
     [startWipeTimer]
   );
@@ -71,10 +98,22 @@ export function TranslatorTool() {
         setProgress(step);
         await sleep(160);
       }
-      const raw = await file.text().catch(() => "");
-      const sample =
-        raw.slice(0, 800) ||
-        `Document "${file.name}" prepared for ${selectedLabel} output.`;
+      let sample = sourcePreview;
+      if (!sample || sample.startsWith("Binary preview")) {
+        const name = file.name.toLowerCase();
+        if (name.endsWith(".docx") || name.endsWith(".doc")) {
+          const { extractDocxContent } = await import("@/lib/office-extract");
+          sample = (await extractDocxContent(file)).text.slice(0, 800);
+        } else if (name.endsWith(".pdf")) {
+          const { extractPdfBlocks, blocksToPlainText } = await import(
+            "@/lib/pdf-extract"
+          );
+          sample = blocksToPlainText(await extractPdfBlocks(file)).slice(0, 800);
+        } else {
+          sample = `Document "${file.name}" prepared for ${selectedLabel} output.`;
+        }
+      }
+      sample = sample.slice(0, 800);
       const preview = `[${selectedLabel} preview]\n\n${sample
         .split(/\s+/)
         .map((w, i) => (i % 7 === 0 ? `⟦${w}⟧` : w))

@@ -7,6 +7,11 @@ import {
   extractPdfBlocks,
   type DocBlock,
 } from "@/lib/pdf-extract";
+import {
+  extractDocxContent,
+  looksLikeBinaryGarbage,
+  textToPdfBlobLib,
+} from "@/lib/office-extract";
 
 export type FormatId =
   | "pdf"
@@ -412,22 +417,8 @@ async function extractTextish(file: File, from: FormatId): Promise<string> {
   if (from === "txt" || from === "csv") return file.text();
   if (from === "xlsx" || from === "xls") return readSpreadsheetAsCsv(file);
   if (from === "docx" || from === "doc") {
-    // Best-effort: try UTF-8 text extraction from zip/xml or binary
-    const buf = await file.arrayBuffer();
-    const bytes = new Uint8Array(buf);
-    // DOCX is zip — look for readable XML text nodes roughly
-    const asText = new TextDecoder("utf-8", { fatal: false }).decode(bytes);
-    const texts = [...asText.matchAll(/>([^<]{2,})</g)]
-      .map((m) => m[1])
-      .filter(
-        (t) =>
-          /[A-Za-z0-9]/.test(t) &&
-          !/^[\s\d./-]+$/.test(t) &&
-          !/%PDF-|endobj|\/Type\s*\//.test(t)
-      )
-      .slice(0, 400);
-    if (texts.length) return texts.join("\n");
-    return `Document: ${file.name}\n(Size ${file.size} bytes)\nConverted via Convert My File text extraction.`;
+    const { text } = await extractDocxContent(file);
+    return text;
   }
   if (from === "pdf") {
     const blocks = await extractPdfBlocks(file);
@@ -447,6 +438,10 @@ async function extractStructured(
       blocks,
       html: blocksToHtml(blocks),
     };
+  }
+  if (from === "docx" || from === "doc") {
+    const { text, blocks } = await extractDocxContent(file);
+    return { text, blocks, html: blocksToHtml(blocks) };
   }
   const text = await extractTextish(file, from);
   return { text };
@@ -488,10 +483,13 @@ export async function convertFile(
   const structured = await extractStructured(file, from);
   const text = structured.text;
 
-  // Safety: never surface raw PDF source in outputs
-  if (/%PDF-|endobj|startxref/.test(text.slice(0, 500))) {
+  // Safety: never surface raw PDF / OOXML / binary as "text"
+  if (
+    /%PDF-|endobj|startxref/.test(text.slice(0, 500)) ||
+    looksLikeBinaryGarbage(text)
+  ) {
     throw new Error(
-      "PDF text extraction failed (raw PDF bytes detected). Try a text-based PDF."
+      "Text extraction failed (binary or unreadable content detected). Try a text-based document or .docx."
     );
   }
 
@@ -527,11 +525,11 @@ export async function convertFile(
   }
 
   if (to === "pdf") {
-    const blob = textToPdfBlob(text, file.name);
+    const blob = await textToPdfBlobLib(text, file.name.replace(/\.[^.]+$/, ""));
     return {
       blob,
       previewKind: "pdf",
-      previewText: text.slice(0, 4000),
+      previewText: text.slice(0, 6000),
       filenameExt: "pdf",
     };
   }
@@ -563,7 +561,19 @@ export async function convertFile(
         filenameExt: "docx",
       };
     }
-    const blob = textToDocBlob(text, to === "docx", structured.html);
+    // Prefer real OOXML when targeting docx even without structured blocks
+    if (to === "docx") {
+      const blob = await blocksToDocxBlob([
+        { type: "paragraph", text },
+      ]);
+      return {
+        blob,
+        previewKind: "text",
+        previewText: text.slice(0, 6000),
+        filenameExt: "docx",
+      };
+    }
+    const blob = textToDocBlob(text, false, structured.html);
     return {
       blob,
       previewKind: "text",
