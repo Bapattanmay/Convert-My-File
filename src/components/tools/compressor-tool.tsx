@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { Download, FileUp, Loader2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Download, FileText, FileUp, ImageIcon, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,21 +19,35 @@ type Unit = "KB" | "MB";
 function parseTargetBytes(value: string, unit: Unit): number | null {
   const n = Number(value);
   if (!Number.isFinite(n) || n <= 0) return null;
-  // Exact integer bytes from KB/MB entry
   const factor = unit === "KB" ? 1024 : 1024 * 1024;
   return Math.round(n * factor);
+}
+
+function isImageFile(file: File): boolean {
+  const name = file.name.toLowerCase();
+  return (
+    /\.(jpe?g|png|webp|gif)$/i.test(name) ||
+    (file.type || "").startsWith("image/")
+  );
 }
 
 export function CompressorTool() {
   const inputRef = useRef<HTMLInputElement>(null);
   const { startWipeTimer, markDownloaded } = useWipeTimer();
   const [file, setFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [targetValue, setTargetValue] = useState("500");
   const [unit, setUnit] = useState<Unit>("KB");
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<Blob | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
 
   const targetBytes = parseTargetBytes(targetValue, unit);
 
@@ -46,6 +60,13 @@ export function CompressorTool() {
           : "Match"
       : "Resize";
 
+  const clearPreview = () => {
+    setPreviewUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+  };
+
   const onPick = (picked: File | null) => {
     if (!picked) return;
     const name = picked.name.toLowerCase();
@@ -56,6 +77,7 @@ export function CompressorTool() {
       );
     if (!ok) {
       setFile(null);
+      clearPreview();
       setResult(null);
       setError(
         `This file format is not supported (${picked.name}). Upload an image, PDF, or Word file.`
@@ -63,9 +85,13 @@ export function CompressorTool() {
       if (inputRef.current) inputRef.current.value = "";
       return;
     }
+    clearPreview();
     setFile(picked);
     setResult(null);
     setError(null);
+    if (isImageFile(picked)) {
+      setPreviewUrl(URL.createObjectURL(picked));
+    }
     startWipeTimer();
   };
 
@@ -91,7 +117,6 @@ export function CompressorTool() {
         targetBytes,
         file.type || "application/octet-stream"
       );
-      // Hard guarantee: output byte length must equal target
       if (blob.size !== targetBytes) {
         throw new Error(
           `Exact size failed: got ${blob.size} bytes, expected ${targetBytes}.`
@@ -124,7 +149,7 @@ export function CompressorTool() {
   };
 
   return (
-    <div className="rounded-[28px] border border-[#E8E2D6]/80 bg-white/90 p-6 shadow-[0_20px_60px_rgba(15,23,42,0.05)] backdrop-blur-sm sm:p-7">
+    <div className="rounded-[28px] border border-[#E8E2D6]/80 bg-white/90 p-5 shadow-[0_20px_60px_rgba(15,23,42,0.05)] backdrop-blur-sm sm:p-6">
       <h3 className="font-[family-name:var(--font-display)] text-lg font-semibold tracking-tight text-[#0F172A]">
         Compressor / Expander
       </h3>
@@ -142,10 +167,9 @@ export function CompressorTool() {
         <p className="mt-2 text-sm font-semibold text-[#0F172A]">
           Upload image, PDF, or Word
         </p>
-        {file ? (
-          <p className="mt-3 text-xs text-[#64748B]">
-            {file.name} · {formatBytes(file.size)} · {file.size.toLocaleString()}{" "}
-            bytes
+        {!file ? (
+          <p className="mt-1 text-xs text-[#94A3B8]">
+            .jpg · .png · .webp · .gif · .pdf · .doc · .docx
           </p>
         ) : null}
       </button>
@@ -157,7 +181,41 @@ export function CompressorTool() {
         onChange={(e) => onPick(e.target.files?.[0] ?? null)}
       />
 
-      <div className="mt-5 grid gap-4 sm:grid-cols-[1fr_auto]">
+      {file ? (
+        <div
+          data-testid="compress-file-card"
+          className="mt-3 flex items-center gap-3 rounded-2xl border border-[#E8E2D6] bg-[#FBF9F5] p-3"
+        >
+          {previewUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              data-testid="compress-thumb"
+              src={previewUrl}
+              alt={`Preview of ${file.name}`}
+              className="h-16 w-16 shrink-0 rounded-xl object-cover ring-1 ring-[#E8E2D6]"
+            />
+          ) : (
+            <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-[#0F172A] text-[#D4AF37]">
+              {/\.pdf$/i.test(file.name) ? (
+                <FileText className="h-7 w-7" />
+              ) : (
+                <ImageIcon className="h-7 w-7" />
+              )}
+            </span>
+          )}
+          <div className="min-w-0 flex-1 text-left">
+            <p className="truncate text-sm font-semibold text-[#0F172A]">
+              {file.name}
+            </p>
+            <p className="mt-0.5 text-xs text-[#64748B]">
+              {formatBytes(file.size)} · {file.size.toLocaleString()} bytes
+              {previewUrl ? " · image preview" : " · document"}
+            </p>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="mt-4 grid gap-4 sm:grid-cols-[1fr_auto]">
         <div>
           <Label htmlFor="target-size" className="text-[#64748B]">
             Exact target size
