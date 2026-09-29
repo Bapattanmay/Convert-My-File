@@ -1,14 +1,18 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Files } from "lucide-react";
 import { useWipeTimer, formatCountdown } from "@/components/wipe-provider";
 import { useAuth } from "@/components/auth-provider";
 import { LoginDialog } from "@/components/login-dialog";
 
 export function SiteHeader() {
+  const pathname = usePathname();
   const { active, secondsLeft } = useWipeTimer();
   const { user, loading, setLoginOpen, logout } = useAuth();
+
+  if (pathname?.startsWith("/admin")) return null;
 
   return (
     <header className="sticky top-0 z-50 border-b border-[#E6DFD2]/70 bg-[#F7F4EE]/75 backdrop-blur-xl">

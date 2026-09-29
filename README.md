@@ -1,19 +1,19 @@
 # Convert My File
 
-Secure, ephemeral file workspace for convert, translate, merge, and exact-size compress/expand — with **Google Login**-gated tools, usage analytics, a 3-minute wipe timer, and zero-persistence messaging for file contents.
+Secure, ephemeral file workspace for convert, translate, merge, and exact-size compress/expand — with **Google Login**-gated tools, usage analytics, and an allowlisted Google **Admin panel**.
 
 ## Stack
 
 - Next.js (App Router) + TypeScript
 - Tailwind CSS + shadcn/ui
 - Auth.js (NextAuth v5) Google OAuth
-- Client-side conversion engines + server usage store (JSON on disk)
+- Analytics JSON store (visitors / sessions / feature_events / admin_audit)
 
 ## Run locally
 
 ```bash
 npm install
-cp .env.example .env.local   # fill Google + secrets
+cp .env.example .env.local
 npm run dev
 ```
 
@@ -21,54 +21,36 @@ Open [http://127.0.0.1:43127](http://127.0.0.1:43127).
 
 ### Environment
 
-| Variable | Default / example | Purpose |
-| --- | --- | --- |
-| `GOOGLE_CLIENT_ID` | *(required for user login)* | Google OAuth client ID |
-| `GOOGLE_CLIENT_SECRET` | *(required for user login)* | Google OAuth client secret |
-| `AUTH_SECRET` or `NEXTAUTH_SECRET` | falls back to `SESSION_SECRET` | Auth.js signing secret |
-| `NEXTAUTH_URL` / `AUTH_URL` | `http://127.0.0.1:43127` local; `https://convert-my-file-oo3r.onrender.com` prod | Canonical app URL |
-| `ADMIN_USERNAME` | `bapattanmay@gmail.com` | Owner admin dashboard |
-| `ADMIN_PASSWORD` | `Bapattanmay@12345` | Owner admin password |
-| `SESSION_SECRET` | local default string | Admin JWT + Auth.js fallback |
-| `DATA_DIR` | `./data` | Usage JSON directory |
+| Variable | Purpose |
+| --- | --- |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | User Google Login |
+| `AUTH_SECRET` / `NEXTAUTH_SECRET` | Auth.js signing |
+| `NEXTAUTH_URL` / `AUTH_URL` | Canonical URL |
+| `ADMIN_EMAILS` | Comma-separated Google emails allowed at `/admin` (default includes `bapattanmay@gmail.com`) |
+| `DATA_DIR` | Analytics JSON directory |
 
-### Google Cloud Console — redirect URIs
+### Admin access
 
-Create an OAuth 2.0 Client ID (Web application) and add:
+1. Sign in on the site with Google using an email in `ADMIN_EMAILS`.
+2. Open `/admin`.
+3. Anyone else (including signed-in non-allowlisted users) receives **404**.
 
-**Authorized JavaScript origins**
+Password admin login has been removed.
 
-- `http://127.0.0.1:43127`
-- `https://convert-my-file-oo3r.onrender.com`
+### Google redirect URIs
 
-**Authorized redirect URIs**
-
-- `http://127.0.0.1:43127/api/auth/callback/google`
 - `https://convert-my-file-oo3r.onrender.com/api/auth/callback/google`
-
-Without `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`, the Login UI shows a configuration notice and Google sign-in cannot complete (we do not fake Google login).
-
-## Features
-
-- **Google Login** — Required before Converter / Translator / Merger / Compressor. Stores Google name, email, picture; time spent; features used; approximate location.
-- **Admin** — `/admin` owner dashboard (separate from Google; credentials above).
-- **Wipe timer** — Header countdown (3:00) after upload until download.
-- **Legal** — Terms & Privacy disclose Google sign-in and analytics.
-
-## Storage note
-
-Usage data is written to `DATA_DIR/usage-store.json`. On Render without a persistent disk, this is **ephemeral** and resets on redeploy.
+- `http://127.0.0.1:43127/api/auth/callback/google`
 
 ## Scripts
 
 | Command | Description |
 | --- | --- |
-| `npm run dev` | Development server (port 43127) |
-| `npm run build` | Production build |
-| `npm run start` | Start production server |
-| `npm run lint` | ESLint |
-| `npm run test:e2e` | Playwright end-to-end QA (requires `npm run dev`) |
+| `npm run dev` | Dev server (port 43127) |
+| `npm run build` / `start` | Production |
+| `npm test` | Admin metrics unit tests |
+| `npm run test:e2e` | Playwright QA |
 
 ## Deploy (Render)
 
-Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `AUTH_SECRET`, `NEXTAUTH_URL=https://convert-my-file-oo3r.onrender.com`, admin vars, and optionally `DATA_DIR` on the service, then deploy.
+Set Google OAuth secrets, `ADMIN_EMAILS=bapattanmay@gmail.com`, Auth.js URL/secrets, then deploy.

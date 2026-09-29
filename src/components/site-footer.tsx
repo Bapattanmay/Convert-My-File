@@ -1,7 +1,13 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { ShieldCheck } from "lucide-react";
 
 export function SiteFooter() {
+  const pathname = usePathname();
+  if (pathname?.startsWith("/admin")) return null;
+
   return (
     <footer className="relative overflow-hidden border-t border-[#1E293B] bg-gradient-to-b from-[#0F172A] to-[#0B1220] text-[#E8E2D6]">
       <div

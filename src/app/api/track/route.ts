@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { readUserSession } from "@/lib/session";
 import { touchSession } from "@/lib/usage-store";
 import { clientIp, lookupIpLocation } from "@/lib/geo";
+import { truncateIp } from "@/lib/admin-metrics";
 
 export async function POST(req: Request) {
   const token = await readUserSession();
@@ -42,19 +43,17 @@ export async function POST(req: Request) {
       city: ipLoc.city,
       region: ipLoc.region,
       country: ipLoc.country,
-      ip: ipLoc.ip || ip,
+      ip: truncateIp(ipLoc.ip || ip),
     };
   } else if (body?.syncIpLocation) {
     const ip = clientIp(req.headers);
     const ipLoc = await lookupIpLocation(ip);
     locationPatch = {
       source: (ipLoc.source || "ip_approximate") as "ip_approximate",
-      latitude: ipLoc.latitude,
-      longitude: ipLoc.longitude,
       city: ipLoc.city,
       region: ipLoc.region,
       country: ipLoc.country,
-      ip: ipLoc.ip || ip,
+      ip: truncateIp(ipLoc.ip || ip),
     };
   }
 

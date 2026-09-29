@@ -124,11 +124,14 @@ function AuthInner({ children }: { children: ReactNode }) {
 
   const heartbeat = useEffectEvent(() => {
     if (!user) return;
+    if (typeof document !== "undefined" && document.visibilityState === "hidden") {
+      return;
+    }
     void fetch("/api/track", {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ seconds: 15 }),
+      body: JSON.stringify({ seconds: 30 }),
     })
       .then((r) => (r.ok ? r.json() : null))
       .then((data: { timeSpentSeconds?: number } | null) => {
@@ -143,8 +146,15 @@ function AuthInner({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!user) return;
-    const id = window.setInterval(() => heartbeat(), 15_000);
-    return () => window.clearInterval(id);
+    const id = window.setInterval(() => heartbeat(), 30_000);
+    const onVis = () => {
+      if (document.visibilityState === "visible") heartbeat();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", onVis);
+    };
   }, [user]);
 
   const signInWithGoogle = useCallback(async () => {
