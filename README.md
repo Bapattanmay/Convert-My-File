@@ -27,6 +27,7 @@ Open [http://127.0.0.1:43127](http://127.0.0.1:43127).
 | `AUTH_SECRET` / `NEXTAUTH_SECRET` | Auth.js signing |
 | `NEXTAUTH_URL` / `AUTH_URL` | Canonical URL |
 | `ADMIN_EMAILS` | Comma-separated Google emails allowed at `/admin` (default includes `bapattanmay@gmail.com`) |
+| `PREMIUM_EMAILS` | Comma-separated Google emails with Premium desk unlocked (default includes owner). Others can use mock **Upgrade** after Google Login. |
 | `DATA_DIR` | Analytics JSON directory (file fallback / mirror) |
 | `DATABASE_URL` | **Preferred** Postgres URL for durable admin analytics (survives web redeploys) |
 | `DATABASE_SSL` | Set `0` to disable TLS (default: TLS on) |
@@ -44,6 +45,18 @@ Free Render Postgres instances expire ~30 days after creation — upgrade the DB
 ### Translator
 
 Client extracts text from Word/PDF/Excel, then `POST /api/translate` calls **MyMemory** (no key) or **Google Cloud Translation** when `GOOGLE_TRANSLATE_API_KEY` is set. Free MyMemory limits apply (~500 chars/chunk, daily quota); long docs are truncated for preview. Preview and download are real target-language text (e.g. Devanagari for Hindi), not English stubs.
+
+### Premium desk
+
+Free tools stay **one file / one language**. The **Premium** tab unlocks:
+
+- Batch convert → ZIP (up to 50 files)
+- PDF → editable DOC → PDF editor round-trip
+- 5-language translation pack
+- Page-range merge picker, merge+compress, digital signature stamp
+- Image quality before/after, video/audio exact-size, bulk per-file targets
+
+Unlock via `PREMIUM_EMAILS` allowlist or in-app **Upgrade (mock)** — no payment processor; sets a session cookie + local unlock for testing.
 
 ### Admin access
 

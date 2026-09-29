@@ -13,6 +13,8 @@ services:
         value: "22"
       - key: ADMIN_EMAILS
         value: bapattanmay@gmail.com
+      - key: PREMIUM_EMAILS
+        value: bapattanmay@gmail.com
       - key: SESSION_SECRET
         value: convert-my-file-prod-session-secret-2026
       - key: AUTH_SECRET

@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import {
   ArrowDown,
   ArrowUp,
+  Crown,
   Download,
   FileUp,
   Loader2,
@@ -20,12 +21,15 @@ import {
   unsupportedMergeMessage,
   type MergeKind,
 } from "@/lib/merge";
+import { usePremium } from "@/hooks/use-premium";
+import { PremiumUpgradeCard } from "@/components/premium/premium-upgrade-card";
 
 type ListedFile = { id: string; file: File; kind: MergeKind };
 
 export function MergerTool() {
   const inputRef = useRef<HTMLInputElement>(null);
   const { startWipeTimer, markDownloaded } = useWipeTimer();
+  const { isPremium } = usePremium();
   const [files, setFiles] = useState<ListedFile[]>([]);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -116,9 +120,19 @@ export function MergerTool() {
         Document Merger
       </h3>
       <p className="mt-1 text-sm leading-relaxed text-[#64748B]">
-        Merge PDF, Word (DOC/DOCX), and PowerPoint (PPT/PPTX) — reorder, then
-        download one combined PDF.
+        Free: full-file merge. Premium: page ranges, merge+compress, and
+        digital signatures on the Premium desk.
       </p>
+      {!isPremium ? (
+        <div className="mt-3">
+          <PremiumUpgradeCard dense feature="Page-range merge & sign" />
+        </div>
+      ) : (
+        <p className="mt-3 flex items-center gap-1.5 text-xs font-medium text-emerald-800">
+          <Crown className="h-3.5 w-3.5" /> Premium — page picker & signatures in
+          Premium tab.
+        </p>
+      )}
 
       <button
         type="button"

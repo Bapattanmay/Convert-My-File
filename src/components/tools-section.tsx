@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Crown, Lock } from "lucide-react";
+import { Lock } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ConverterTool } from "@/components/tools/converter-tool";
 import { TranslatorTool } from "@/components/tools/translator-tool";
 import { MergerTool } from "@/components/tools/merger-tool";
 import { CompressorTool } from "@/components/tools/compressor-tool";
+import { PremiumDesk } from "@/components/premium/premium-desk";
 import { useAuth } from "@/components/auth-provider";
 
 const TABS = [
@@ -55,7 +56,7 @@ function GateOverlay() {
 }
 
 export function ToolsSection() {
-  const { user, trackFeature, setLoginOpen } = useAuth();
+  const { user, trackFeature } = useAuth();
   const gated = !user;
   const [tab, setTab] = useState("converter");
 
@@ -114,28 +115,7 @@ export function ToolsSection() {
               <CompressorTool />
             </TabsContent>
             <TabsContent value="premium" className="outline-none">
-              <div className="rounded-[28px] border border-[#E8E2D6] bg-[#FBF9F5] p-8 text-center sm:p-12">
-                <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#0F172A] text-[#D4AF37]">
-                  <Crown className="h-6 w-6" />
-                </span>
-                <h3 className="mt-5 font-[family-name:var(--font-display)] text-2xl font-bold text-[#0F172A]">
-                  Premium desk
-                </h3>
-                <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-[#64748B]">
-                  Google Login unlocks the core workspace. Premium adds priority
-                  queues, batch jobs, and signed wipe receipts — UI-ready for
-                  deeper identity features.
-                </p>
-                {!user ? (
-                  <button
-                    type="button"
-                    onClick={() => setLoginOpen(true)}
-                    className="mt-6 rounded-full bg-[#0F172A] px-6 py-3 text-sm font-semibold tracking-[0.12em] text-white"
-                  >
-                    Login
-                  </button>
-                ) : null}
-              </div>
+              <PremiumDesk />
             </TabsContent>
           </div>
         </Tabs>

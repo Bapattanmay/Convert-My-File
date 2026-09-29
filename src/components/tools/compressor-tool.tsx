@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Download, FileText, FileUp, ImageIcon, Loader2 } from "lucide-react";
+import { Crown, Download, FileText, FileUp, ImageIcon, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,6 +13,8 @@ import {
   resizeToExactBytes,
   sleep,
 } from "@/lib/file-utils";
+import { usePremium } from "@/hooks/use-premium";
+import { PremiumUpgradeCard } from "@/components/premium/premium-upgrade-card";
 
 type Unit = "KB" | "MB";
 
@@ -34,6 +36,7 @@ function isImageFile(file: File): boolean {
 export function CompressorTool() {
   const inputRef = useRef<HTMLInputElement>(null);
   const { startWipeTimer, markDownloaded } = useWipeTimer();
+  const { isPremium } = usePremium();
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [targetValue, setTargetValue] = useState("500");
@@ -154,9 +157,19 @@ export function CompressorTool() {
         Compressor / Expander
       </h3>
       <p className="mt-1 text-sm leading-relaxed text-[#64748B]">
-        Enter an exact target in KB or MB. Output byte length matches that
-        target exactly.
+        Free: one file, exact KB/MB. Premium: quality preview, video/audio, and
+        bulk per-file targets on the Premium desk.
       </p>
+      {!isPremium ? (
+        <div className="mt-3">
+          <PremiumUpgradeCard dense feature="Quality & media compress" />
+        </div>
+      ) : (
+        <p className="mt-3 flex items-center gap-1.5 text-xs font-medium text-emerald-800">
+          <Crown className="h-3.5 w-3.5" /> Premium — quality & media tools in
+          Premium tab.
+        </p>
+      )}
 
       <button
         type="button"

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useRef, useState } from "react";
-import { Download, FileUp, Loader2 } from "lucide-react";
+import { Download, FileUp, Loader2, Crown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -21,6 +21,8 @@ import {
   readAsTextPreview,
   sleep,
 } from "@/lib/file-utils";
+import { usePremium } from "@/hooks/use-premium";
+import { PremiumUpgradeCard } from "@/components/premium/premium-upgrade-card";
 
 function isTranslatorSource(file: File): boolean {
   const name = file.name.toLowerCase();
@@ -62,6 +64,7 @@ async function extractSourceText(file: File, max = 4000): Promise<string> {
 export function TranslatorTool() {
   const inputRef = useRef<HTMLInputElement>(null);
   const { startWipeTimer, markDownloaded } = useWipeTimer();
+  const { isPremium } = usePremium();
   const [file, setFile] = useState<File | null>(null);
   const [language, setLanguage] = useState("hindi");
   const [sourcePreview, setSourcePreview] = useState("");
@@ -216,10 +219,19 @@ export function TranslatorTool() {
             Document Translator
           </h3>
           <p className="mt-1 text-sm text-[#64748B]">
-            Real translation into {TRANSLATOR_LANGUAGES.length} languages via
-            MyMemory (free) or Google Translate when an API key is configured.
-            Free tier caps long documents; preview first.
+            Free: one language at a time. Premium: 5-language batch on the
+            Premium desk.
           </p>
+          {!isPremium ? (
+            <div className="mt-3">
+              <PremiumUpgradeCard dense feature="Multi-language batch" />
+            </div>
+          ) : (
+            <p className="mt-3 flex items-center gap-1.5 text-xs font-medium text-emerald-800">
+              <Crown className="h-3.5 w-3.5" /> Premium — use Premium tab for
+              5-language packs.
+            </p>
+          )}
           <button
             type="button"
             onClick={() => inputRef.current?.click()}

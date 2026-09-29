@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { FileUp, Loader2, Download } from "lucide-react";
+import { Download, FileUp, Loader2, Crown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useWipeTimer } from "@/components/wipe-provider";
@@ -17,6 +17,8 @@ import {
   unsupportedConversionMessage,
   unsupportedFileMessage,
 } from "@/lib/convert";
+import { usePremium } from "@/hooks/use-premium";
+import { PremiumUpgradeCard } from "@/components/premium/premium-upgrade-card";
 
 const QUICK_TAGS: { label: string; from: FormatId; to: FormatId }[] = [
   { label: "PDF → DOC", from: "pdf", to: "docx" },
@@ -30,6 +32,7 @@ const QUICK_TAGS: { label: string; from: FormatId; to: FormatId }[] = [
 export function ConverterTool() {
   const inputRef = useRef<HTMLInputElement>(null);
   const { startWipeTimer, markDownloaded } = useWipeTimer();
+  const { isPremium } = usePremium();
   const [file, setFile] = useState<File | null>(null);
   const [sourceFormat, setSourceFormat] = useState<FormatId | null>(null);
   const [target, setTarget] = useState<FormatId>("jpg");
@@ -232,10 +235,21 @@ export function ConverterTool() {
               Smart Converter
             </h3>
             <p className="mt-1 text-sm text-[#64748B]">
-              Upload on the left. Output preview on the right.
+              Free: one file at a time. Premium: batch ZIP on the Premium desk.
             </p>
           </div>
         </div>
+
+        {!isPremium ? (
+          <div className="mt-3">
+            <PremiumUpgradeCard dense feature="Batch convert" />
+          </div>
+        ) : (
+          <p className="mt-3 flex items-center gap-1.5 text-xs font-medium text-emerald-800">
+            <Crown className="h-3.5 w-3.5" /> Premium unlocked — open the Premium
+            tab for batch ZIP & PDF editor.
+          </p>
+        )}
 
         <button
           type="button"

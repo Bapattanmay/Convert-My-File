@@ -96,48 +96,57 @@ async function addTextPages(
 
 export type MergeInput = { file: File; kind: MergeKind };
 
+/** Convert one supported file into pages on an existing PDFDocument. */
+export async function appendDocumentPages(
+  merged: PDFDocument,
+  input: MergeInput
+): Promise<void> {
+  const { file, kind } = input;
+  if (kind === "pdf") {
+    try {
+      const src = await PDFDocument.load(await file.arrayBuffer(), {
+        ignoreEncryption: true,
+      });
+      const pages = await merged.copyPages(src, src.getPageIndices());
+      pages.forEach((p) => merged.addPage(p));
+      return;
+    } catch {
+      // Fall through to text extraction page
+    }
+  }
+
+  let text = "";
+  try {
+    if (kind === "docx" || kind === "doc") {
+      text = (await extractDocxContent(file)).text;
+    } else if (kind === "pptx" || kind === "ppt") {
+      text = await extractPptxText(file);
+    } else {
+      text = `(Could not parse ${file.name})`;
+    }
+  } catch (e) {
+    text =
+      e instanceof Error
+        ? e.message
+        : `(Could not extract text from ${file.name})`;
+  }
+  await addTextPages(
+    merged,
+    `${file.name} (${kind.toUpperCase()})`,
+    text || `(Empty extract from ${file.name})`
+  );
+}
+
 /** Merge PDF / Word / PowerPoint files into one usable PDF (order preserved). */
 export async function mergeDocuments(inputs: MergeInput[]): Promise<Blob> {
-  if (inputs.length < 2) {
-    throw new Error("Add at least two supported files to merge.");
+  if (inputs.length < 1) {
+    throw new Error("Add at least one supported file to merge.");
   }
 
   const merged = await PDFDocument.create();
 
-  for (const { file, kind } of inputs) {
-    if (kind === "pdf") {
-      try {
-        const src = await PDFDocument.load(await file.arrayBuffer(), {
-          ignoreEncryption: true,
-        });
-        const pages = await merged.copyPages(src, src.getPageIndices());
-        pages.forEach((p) => merged.addPage(p));
-        continue;
-      } catch {
-        // Fall through to text extraction page
-      }
-    }
-
-    let text = "";
-    try {
-      if (kind === "docx" || kind === "doc") {
-        text = (await extractDocxContent(file)).text;
-      } else if (kind === "pptx" || kind === "ppt") {
-        text = await extractPptxText(file);
-      } else {
-        text = `(Could not parse ${file.name})`;
-      }
-    } catch (e) {
-      text =
-        e instanceof Error
-          ? e.message
-          : `(Could not extract text from ${file.name})`;
-    }
-    await addTextPages(
-      merged,
-      `${file.name} (${kind.toUpperCase()})`,
-      text || `(Empty extract from ${file.name})`
-    );
+  for (const input of inputs) {
+    await appendDocumentPages(merged, input);
   }
 
   if (merged.getPageCount() === 0) {
