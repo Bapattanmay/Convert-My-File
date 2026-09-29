@@ -91,7 +91,7 @@ export function TranslatorTool() {
       setResult(null);
       setTranslatedPreview("");
       setProviderNote(null);
-      if (!(await isTranslatorSource(picked))) {
+      if (!isTranslatorSource(picked)) {
         setFile(null);
         setSourcePreview("");
         setError(

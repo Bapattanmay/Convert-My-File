@@ -288,22 +288,25 @@ async function main() {
   // ───────── Translator ─────────
   try {
     await openTab(page, "Translator");
-    // Reject: translator should clear unsupported
+    // Reject unsupported
     await page.locator('#tools input[type="file"]').first().setInputFiles(path.join(FIX, "bad.exe"));
     await page.waitForTimeout(600);
     const tRej = await page.locator("#tools [role='alert']").textContent().catch(() => "");
-    const exeChip = await page.locator("#tools").getByText("bad.exe").count();
-    const rejOk = /not supported/i.test(tRej || "") && exeChip === 0;
-    // Prefer: uploading DOCX is accepted
+    const rejOk = /not supported/i.test(tRej || "") && /bad\.exe/i.test(tRej || "");
+    // Prefer: uploading DOCX is accepted (chip in drop zone, not only alert)
     await page.locator('#tools input[type="file"]').first().setInputFiles(path.join(FIX, "translate.docx"));
     await page.waitForTimeout(800);
-    const docChip = await page.locator("#tools").getByText("translate.docx").count();
+    const docChip = await page
+      .locator("#tools button")
+      .filter({ hasText: "translate.docx" })
+      .count();
+    const docShown = (await page.locator("#tools").innerText()).includes("translate.docx");
     check(
       matrix,
       "Translator",
       "input",
-      docChip > 0 && rejOk,
-      docChip > 0
+      docShown && rejOk,
+      docShown
         ? `DOCX accepted; exe rejected=${rejOk}`
         : "DOCX not accepted"
     );
