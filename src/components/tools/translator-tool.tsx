@@ -22,6 +22,17 @@ import {
   sleep,
 } from "@/lib/file-utils";
 
+function isTranslatorSource(file: File): boolean {
+  const name = file.name.toLowerCase();
+  return (
+    name.endsWith(".docx") ||
+    name.endsWith(".doc") ||
+    name.endsWith(".pdf") ||
+    name.endsWith(".xlsx") ||
+    name.endsWith(".xls")
+  );
+}
+
 async function extractSourceText(file: File, max = 4000): Promise<string> {
   const name = file.name.toLowerCase();
   if (name.endsWith(".docx") || name.endsWith(".doc")) {
@@ -43,7 +54,9 @@ async function extractSourceText(file: File, max = 4000): Promise<string> {
     const csv = sheet ? XLSX.utils.sheet_to_csv(sheet) : "";
     return (csv || (await readAsTextPreview(file))).slice(0, max);
   }
-  return (await readAsTextPreview(file)).slice(0, max);
+  throw new Error(
+    `This file format is not supported (${file.name}). Upload Word, PDF, or Excel.`
+  );
 }
 
 export function TranslatorTool() {
@@ -78,13 +91,26 @@ export function TranslatorTool() {
       setResult(null);
       setTranslatedPreview("");
       setProviderNote(null);
+      if (!(await isTranslatorSource(picked))) {
+        setFile(null);
+        setSourcePreview("");
+        setError(
+          `This file format is not supported (${picked.name}). Upload Word, PDF, or Excel.`
+        );
+        if (inputRef.current) inputRef.current.value = "";
+        return;
+      }
       setFile(picked);
       startWipeTimer();
       try {
         setSourcePreview(await extractSourceText(picked, 2000));
       } catch (e) {
-        setSourcePreview(
-          e instanceof Error ? e.message : await readAsTextPreview(picked)
+        setSourcePreview("");
+        setFile(null);
+        setError(
+          e instanceof Error
+            ? e.message
+            : "Could not read this file. Try Word, PDF, or Excel."
         );
       }
     },

@@ -48,6 +48,21 @@ export function CompressorTool() {
 
   const onPick = (picked: File | null) => {
     if (!picked) return;
+    const name = picked.name.toLowerCase();
+    const ok =
+      /\.(pdf|doc|docx|jpe?g|png|webp|gif)$/i.test(name) ||
+      /^(image\/|application\/pdf|application\/msword|application\/vnd\.openxmlformats)/.test(
+        picked.type || ""
+      );
+    if (!ok) {
+      setFile(null);
+      setResult(null);
+      setError(
+        `This file format is not supported (${picked.name}). Upload an image, PDF, or Word file.`
+      );
+      if (inputRef.current) inputRef.current.value = "";
+      return;
+    }
     setFile(picked);
     setResult(null);
     setError(null);
