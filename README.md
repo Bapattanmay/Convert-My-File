@@ -37,9 +37,9 @@ Client extracts text from Word/PDF/Excel, then `POST /api/translate` calls **MyM
 
 ### Admin access
 
-1. Sign in on the site with Google using an email in `ADMIN_EMAILS`.
-2. Open `/admin`.
-3. Anyone else (including signed-in non-allowlisted users) receives **404**.
+1. Open `/admin` — if signed out, use **Sign in with Google** on that page (callback returns to `/admin`).
+2. Only Google emails in `ADMIN_EMAILS` (default `bapattanmay@gmail.com`) see the dashboard.
+3. Signed-in non-allowlisted users receive **404**.
 
 Password admin login has been removed.
 

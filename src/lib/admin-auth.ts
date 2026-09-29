@@ -2,14 +2,13 @@ import { auth } from "@/auth";
 
 /** Comma/space-separated allowlist. Default includes owner email. */
 export function adminEmails(): string[] {
-  const raw =
-    process.env.ADMIN_EMAILS ||
-    process.env.ADMIN_USERNAME ||
-    "bapattanmay@gmail.com";
+  // Prefer ADMIN_EMAILS only — do not fall back to legacy ADMIN_USERNAME
+  // (which may be a non-email login id and would block real admins).
+  const raw = process.env.ADMIN_EMAILS || "bapattanmay@gmail.com";
   return raw
     .split(/[,;\s]+/)
     .map((e) => e.trim().toLowerCase())
-    .filter(Boolean);
+    .filter((e) => e.includes("@"));
 }
 
 export function isAdminEmail(email?: string | null): boolean {

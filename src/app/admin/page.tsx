@@ -1,8 +1,9 @@
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { Instrument_Sans, JetBrains_Mono } from "next/font/google";
-import { requireAdmin } from "@/lib/admin-auth";
+import { resolveAdminAccess } from "@/lib/admin-access";
 import { AdminDashboard } from "@/components/admin/admin-dashboard";
+import { AdminSignInGate } from "@/components/admin/admin-sign-in-gate";
 
 const instrument = Instrument_Sans({
   subsets: ["latin"],
@@ -22,20 +23,26 @@ export const metadata = {
 };
 
 export default async function AdminPage() {
-  const admin = await requireAdmin();
-  if (!admin) notFound();
+  const access = await resolveAdminAccess();
+
+  // Signed-in but not allowlisted → keep obscure 404
+  if (access.status === "forbidden") notFound();
 
   return (
     <div className={`${instrument.variable} ${jetbrains.variable}`}>
-      <Suspense
-        fallback={
-          <div className="flex min-h-screen items-center justify-center bg-[#F3F0E8] text-sm text-[#64748B]">
-            Loading admin…
-          </div>
-        }
-      >
-        <AdminDashboard admin={admin} />
-      </Suspense>
+      {access.status === "unauthenticated" ? (
+        <AdminSignInGate />
+      ) : (
+        <Suspense
+          fallback={
+            <div className="flex min-h-screen items-center justify-center bg-[#F3F0E8] text-sm text-[#64748B]">
+              Loading admin…
+            </div>
+          }
+        >
+          <AdminDashboard admin={access.admin} />
+        </Suspense>
+      )}
     </div>
   );
 }
