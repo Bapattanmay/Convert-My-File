@@ -314,7 +314,7 @@ export function TranslatorTool() {
           </p>
           <div
             data-testid="source-preview"
-            className="mt-2 max-h-44 min-h-[6.5rem] overflow-y-auto overscroll-contain rounded-[18px] bg-[#F7F4EE] p-3 font-mono text-xs leading-relaxed text-[#475569]"
+            className="mt-2 max-h-44 min-h-[6.5rem] overflow-y-scroll overscroll-contain rounded-[18px] bg-[#F7F4EE] p-3 font-mono text-xs leading-relaxed text-[#475569]"
           >
             <pre className="whitespace-pre-wrap break-words">
               {sourcePreview || "Upload to preview source text."}
@@ -325,7 +325,7 @@ export function TranslatorTool() {
           </p>
           <div
             data-testid="translated-preview"
-            className="mt-2 max-h-56 min-h-[7rem] overflow-y-auto overscroll-contain rounded-[18px] bg-[#0F172A] p-3 font-mono text-xs leading-relaxed text-[#CBD5E1]"
+            className="mt-2 max-h-56 min-h-[7rem] overflow-y-scroll overscroll-contain rounded-[18px] bg-[#0F172A] p-3 font-mono text-xs leading-relaxed text-[#CBD5E1]"
           >
             <pre className="whitespace-pre-wrap break-words">
               {translatedPreview ||
