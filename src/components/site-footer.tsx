@@ -48,6 +48,12 @@ export function SiteFooter() {
             >
               Contact
             </Link>
+            <Link
+              href="/admin"
+              className="text-[#CBD5E1] transition hover:text-[#D4AF37]"
+            >
+              Admin
+            </Link>
           </nav>
         </div>
 

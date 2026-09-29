@@ -3,9 +3,12 @@
 import Link from "next/link";
 import { Files } from "lucide-react";
 import { useWipeTimer, formatCountdown } from "@/components/wipe-provider";
+import { useAuth } from "@/components/auth-provider";
+import { LoginDialog } from "@/components/login-dialog";
 
 export function SiteHeader() {
   const { active, secondsLeft } = useWipeTimer();
+  const { user, loading, setLoginOpen, logout } = useAuth();
 
   return (
     <header className="sticky top-0 z-50 border-b border-[#E6DFD2]/70 bg-[#F7F4EE]/75 backdrop-blur-xl">
@@ -42,17 +45,34 @@ export function SiteHeader() {
                 {formatCountdown(secondsLeft)}
               </span>
             </div>
-          ) : (
+          ) : null}
+
+          {!loading && user ? (
+            <div className="flex items-center gap-2">
+              <span className="hidden max-w-[140px] truncate text-xs font-semibold text-[#475569] sm:inline">
+                {user.name}
+              </span>
+              <button
+                type="button"
+                onClick={() => void logout()}
+                className="rounded-full border border-[#E6DFD2] bg-white/80 px-4 py-2.5 text-xs font-semibold tracking-[0.08em] text-[#0F172A] transition hover:bg-white"
+              >
+                Log out
+              </button>
+            </div>
+          ) : !loading ? (
             <button
               type="button"
+              onClick={() => setLoginOpen(true)}
               className="rounded-full bg-gradient-to-r from-[#0F172A] to-[#1E293B] px-5 py-2.5 text-xs font-semibold tracking-[0.12em] text-white shadow-[0_12px_32px_rgba(15,23,42,0.22)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_36px_rgba(15,23,42,0.28)]"
             >
-              RECOGNIZE ID
+              Login
             </button>
-          )}
+          ) : null}
         </div>
       </div>
       <div className="gold-hairline h-px w-full" />
+      <LoginDialog />
     </header>
   );
 }

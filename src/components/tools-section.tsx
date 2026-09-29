@@ -1,11 +1,13 @@
 "use client";
 
-import { Crown } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Crown, Lock } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ConverterTool } from "@/components/tools/converter-tool";
 import { TranslatorTool } from "@/components/tools/translator-tool";
 import { MergerTool } from "@/components/tools/merger-tool";
 import { CompressorTool } from "@/components/tools/compressor-tool";
+import { useAuth } from "@/components/auth-provider";
 
 const TABS = [
   { value: "converter", label: "Converter" },
@@ -15,7 +17,52 @@ const TABS = [
   { value: "premium", label: "Premium" },
 ] as const;
 
+const TRACKABLE = new Set(["converter", "translator", "merger", "compressor"]);
+
+function GateOverlay() {
+  const { setLoginOpen, loading } = useAuth();
+  if (loading) {
+    return (
+      <div className="absolute inset-0 z-10 flex items-center justify-center rounded-[28px] bg-[#FBF9F5]/85 backdrop-blur-[2px]">
+        <p className="text-sm font-medium text-[#64748B]">Checking session…</p>
+      </div>
+    );
+  }
+  return (
+    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 rounded-[28px] bg-[#FBF9F5]/92 p-6 text-center backdrop-blur-[2px]">
+      <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#0F172A] text-[#D4AF37]">
+        <Lock className="h-5 w-5" />
+      </span>
+      <div>
+        <p className="font-[family-name:var(--font-display)] text-lg font-bold text-[#0F172A]">
+          Login required
+        </p>
+        <p className="mt-2 max-w-sm text-sm text-[#64748B]">
+          Sign in with your name to use Converter, Translator, Merger, and
+          Compressor. Usage time, features, and approximate location are
+          recorded per our Privacy Policy.
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={() => setLoginOpen(true)}
+        className="rounded-full bg-[#0F172A] px-6 py-3 text-sm font-semibold tracking-[0.12em] text-white"
+      >
+        Login
+      </button>
+    </div>
+  );
+}
+
 export function ToolsSection() {
+  const { user, trackFeature, setLoginOpen } = useAuth();
+  const gated = !user;
+  const [tab, setTab] = useState("converter");
+
+  useEffect(() => {
+    if (user && TRACKABLE.has(tab)) trackFeature(tab);
+  }, [user, tab, trackFeature]);
+
   return (
     <section id="tools" className="border-b border-[#E6DFD2]/80">
       <div className="mx-auto max-w-6xl px-5 py-16 sm:px-8 sm:py-20">
@@ -26,22 +73,34 @@ export function ToolsSection() {
           <h2 className="mt-3 font-[family-name:var(--font-display)] text-3xl font-bold tracking-tight text-[#0F172A] sm:text-4xl">
             Choose a tool. Shape the file. Download and forget.
           </h2>
+          {gated ? (
+            <p className="mt-3 text-sm text-[#64748B]">
+              Tools unlock after Login. Your name and usage analytics help us
+              improve the platform.
+            </p>
+          ) : null}
         </div>
 
-        <Tabs defaultValue="converter" className="mt-10 gap-6">
+        <Tabs
+          value={tab}
+          onValueChange={(v) => setTab(v)}
+          className="mt-10 gap-6"
+        >
           <TabsList className="flex h-auto w-full flex-wrap justify-start gap-2 rounded-[22px] bg-[#EFEAE1]/90 p-2 shadow-inner">
-            {TABS.map((tab) => (
+            {TABS.map((t) => (
               <TabsTrigger
-                key={tab.value}
-                value={tab.value}
+                key={t.value}
+                value={t.value}
                 className="rounded-full px-4 py-2.5 text-sm font-semibold text-[#64748B] transition data-active:bg-gradient-to-r data-active:from-[#0F172A] data-active:to-[#1E293B] data-active:text-[#D4AF37] data-active:shadow-[0_12px_28px_rgba(15,23,42,0.2)]"
               >
-                {tab.label}
+                {t.label}
               </TabsTrigger>
             ))}
           </TabsList>
 
-          <div className="rounded-[32px] border border-[#E6DFD2]/90 bg-white/90 p-4 shadow-[0_28px_80px_rgba(15,23,42,0.07)] backdrop-blur-sm sm:p-6">
+          <div className="relative rounded-[32px] border border-[#E6DFD2]/90 bg-white/90 p-4 shadow-[0_28px_80px_rgba(15,23,42,0.07)] backdrop-blur-sm sm:p-6">
+            {gated ? <GateOverlay /> : null}
+
             <TabsContent value="converter" className="outline-none">
               <ConverterTool />
             </TabsContent>
@@ -63,16 +122,19 @@ export function ToolsSection() {
                   Premium desk
                 </h3>
                 <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-[#64748B]">
-                  Recognize ID unlocks priority queues, batch jobs, and signed
-                  wipe receipts. Core tools remain free — Premium is UI-ready
-                  and awaiting identity binding.
+                  Login unlocks the core workspace. Premium adds priority
+                  queues, batch jobs, and signed wipe receipts — UI-ready and
+                  awaiting identity binding.
                 </p>
-                <button
-                  type="button"
-                  className="mt-6 rounded-full bg-[#0F172A] px-6 py-3 text-sm font-semibold tracking-[0.12em] text-white"
-                >
-                  RECOGNIZE ID
-                </button>
+                {!user ? (
+                  <button
+                    type="button"
+                    onClick={() => setLoginOpen(true)}
+                    className="mt-6 rounded-full bg-[#0F172A] px-6 py-3 text-sm font-semibold tracking-[0.12em] text-white"
+                  >
+                    Login
+                  </button>
+                ) : null}
               </div>
             </TabsContent>
           </div>
