@@ -63,8 +63,8 @@ async function main() {
     await adminLogout.click();
     await sleep(600);
   }
-  await page.getByLabel("Username").fill("admin");
-  await page.getByLabel("Password").fill("ConvertMyFileAdmin2026!");
+  await page.getByLabel("Username").fill("bapattanmay@gmail.com");
+  await page.getByLabel("Password").fill("Bapattanmay@12345");
   await sleep(400);
   await page.getByRole("button", { name: "Sign in" }).click();
   await sleep(1500);

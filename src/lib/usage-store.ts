@@ -115,8 +115,8 @@ export function listSessions(): UsageSession[] {
 
 export function adminCredentials() {
   return {
-    username: process.env.ADMIN_USERNAME || "admin",
-    password: process.env.ADMIN_PASSWORD || "ConvertMyFileAdmin2026!",
+    username: process.env.ADMIN_USERNAME || "bapattanmay@gmail.com",
+    password: process.env.ADMIN_PASSWORD || "Bapattanmay@12345",
   };
 }
 

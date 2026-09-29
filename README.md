@@ -21,8 +21,8 @@ Open [http://127.0.0.1:43127](http://127.0.0.1:43127).
 
 | Variable | Default (local) | Purpose |
 | --- | --- | --- |
-| `ADMIN_USERNAME` | `admin` | Admin dashboard login |
-| `ADMIN_PASSWORD` | `ConvertMyFileAdmin2026!` | Admin dashboard password |
+| `ADMIN_USERNAME` | `bapattanmay@gmail.com` | Admin dashboard login |
+| `ADMIN_PASSWORD` | `Bapattanmay@12345` | Admin dashboard password |
 | `SESSION_SECRET` | `convert-my-file-dev-secret-change-me` | JWT signing secret |
 | `DATA_DIR` | `./data` | Directory for usage JSON store |
 

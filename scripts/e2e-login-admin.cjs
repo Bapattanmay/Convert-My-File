@@ -79,8 +79,8 @@ async function main() {
 
   // 5) Admin dashboard
   await page.goto(BASE + "/admin", { waitUntil: "networkidle" });
-  await page.getByLabel("Username").fill("admin");
-  await page.getByLabel("Password").fill("ConvertMyFileAdmin2026!");
+  await page.getByLabel("Username").fill("bapattanmay@gmail.com");
+  await page.getByLabel("Password").fill("Bapattanmay@12345");
   await page.getByRole("button", { name: "Sign in" }).click();
   await page.waitForTimeout(800);
   assert(
