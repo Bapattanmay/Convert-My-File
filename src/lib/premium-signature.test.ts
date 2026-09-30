@@ -15,7 +15,9 @@ async function makeBodyPdf() {
     color: rgb(0.06, 0.09, 0.16),
   });
   const bytes = await doc.save();
-  return new File([bytes], "body.pdf", { type: "application/pdf" });
+  return new File([Uint8Array.from(bytes)], "body.pdf", {
+    type: "application/pdf",
+  });
 }
 
 describe("findLowestTextBaselineY", () => {
@@ -51,8 +53,11 @@ describe("addDigitalSignature", () => {
     } else if (contents) refs.push(contents);
     let stream = "";
     for (const ref of refs) {
-      const raw = page.doc.context.lookup(ref as never, PDFRawStream);
-      stream += Buffer.from(decodePDFRawStream(raw).decode()).toString("latin1");
+      const looked = page.doc.context.lookup(ref as never);
+      if (!(looked instanceof PDFRawStream)) continue;
+      stream += Buffer.from(decodePDFRawStream(looked).decode()).toString(
+        "latin1"
+      );
     }
     const ascii = stream.replace(/<([0-9A-Fa-f]+)>/g, (_, h) =>
       Buffer.from(h, "hex").toString("latin1")

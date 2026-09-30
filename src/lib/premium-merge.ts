@@ -165,8 +165,9 @@ function readPageContent(page: PDFPage): string {
   let out = "";
   for (const ref of refs) {
     try {
-      const raw = page.doc.context.lookup(ref as never, PDFRawStream);
-      const decoded = decodePDFRawStream(raw).decode();
+      const looked = page.doc.context.lookup(ref as never);
+      if (!(looked instanceof PDFRawStream)) continue;
+      const decoded = decodePDFRawStream(looked).decode();
       out += new TextDecoder("latin1").decode(decoded) + "\n";
     } catch {
       /* ignore unreadable streams */
