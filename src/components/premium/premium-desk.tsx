@@ -746,10 +746,23 @@ function PageMergePanel() {
     if (!list?.length) return;
     setError(null);
     const next: MergeRow[] = [];
-    for (const file of Array.from(list)) {
-      const kind = detectMergeKind(file);
+    for (const raw of Array.from(list)) {
+      const kind = detectMergeKind(raw);
       if (!kind) {
-        setError(`Unsupported: ${file.name}`);
+        setError(`Unsupported: ${raw.name}`);
+        continue;
+      }
+      // Snapshot into an in-memory File so later chip/list edits cannot
+      // invalidate the browser File handle (NotReadableError after long edits).
+      let file: File;
+      try {
+        const buf = await raw.arrayBuffer();
+        file = new File([buf], raw.name, {
+          type: raw.type || "application/pdf",
+          lastModified: raw.lastModified,
+        });
+      } catch {
+        setError(`Could not read ${raw.name}`);
         continue;
       }
       let pageCount = 1;
