@@ -115,13 +115,16 @@ async function openPageMerge(page) {
     .waitFor({ state: "hidden", timeout: 25000 })
     .catch(() => {});
   await page.getByRole("tab", { name: "Premium", exact: true }).click();
-  await page.getByText("Premium active").first().waitFor({ timeout: 20000 });
+  await page
+    .getByText(/Premium active/i)
+    .first()
+    .waitFor({ timeout: 45000 });
   await page
     .locator("button")
     .filter({ hasText: /Page-range merge/i })
     .first()
     .click();
-  await page.waitForTimeout(400);
+  await page.waitForTimeout(600);
 }
 
 async function main() {

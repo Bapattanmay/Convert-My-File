@@ -104,7 +104,7 @@ const PANELS: { id: PanelId; title: string; blurb: string }[] = [
   {
     id: "sign",
     title: "Digital signature",
-    blurb: "Stamp a signature block on PDF/DOC.",
+    blurb: "Plain signer lines under the last content.",
   },
   {
     id: "quality",
