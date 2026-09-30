@@ -63,12 +63,12 @@ async function openTab(page, tabName) {
   await page.goto(BASE + "/#tools", { waitUntil: "domcontentloaded", timeout: 90000 });
   await page.locator("#tools").scrollIntoViewIfNeeded();
   await page
-    .getByText("Google login required")
+    .getByText("Google login for Premium")
     .waitFor({ state: "hidden", timeout: 20000 })
     .catch(() => {});
   await page.getByRole("tab", { name: tabName }).click();
   await page.waitForTimeout(400);
-  const locked = await page.getByText("Google login required").isVisible().catch(() => false);
+  const locked = await page.getByText("Google login for Premium").isVisible().catch(() => false);
   if (locked) throw new Error("Login gate still visible");
 }
 
@@ -437,7 +437,7 @@ async function main() {
     await page.waitForTimeout(500);
     const cChip = await page.locator("#tools").getByText("compress.png").count();
     await page.locator("#target-size").fill("0");
-    await page.getByRole("button", { name: /to exact size$/i }).click();
+    await page.getByRole("button", { name: /toward target$/i }).click();
     await page.waitForTimeout(400);
     const cErr = await page.locator("#tools [role='alert']").textContent().catch(() => "");
     const inputOk = cChip > 0 && /valid|greater than zero|target/i.test(cErr || "");
@@ -451,21 +451,27 @@ async function main() {
         : "file not accepted"
     );
 
-    // Exact KB compress (3 KB)
+    // Approach target KB (prefer ≤; not a false exact-byte SLA)
     await page.locator("#target-size").fill("3");
     await page.getByRole("button", { name: "KB", exact: true }).click();
-    await page.getByRole("button", { name: /to exact size$/i }).click();
+    await page.getByRole("button", { name: /toward target$/i }).click();
     await page.locator('[data-testid="output-bytes"]').waitFor({ timeout: 30000 });
     const outAttr = await page.locator('[data-testid="output-bytes"]').getAttribute("data-bytes");
     const uiBytes = Number(outAttr || 0);
-    check(matrix, "Compressor", "process", uiBytes === 3072, `UI output bytes=${uiBytes} expect 3072`);
+    check(
+      matrix,
+      "Compressor",
+      "process",
+      uiBytes > 0 && uiBytes <= 3072 * 1.2,
+      `UI output bytes=${uiBytes} target 3072 (≤ or close)`
+    );
     const previewText = await page.locator("#tools").innerText();
     check(
       matrix,
       "Compressor",
       "preview",
-      /Output size|3072|3(\.0+)?\s*KB/i.test(previewText),
-      "shows exact output size in UI"
+      /Output:|at or under target|closest achievable|matched target/i.test(previewText),
+      "shows approach-target output in UI"
     );
     const [cdl] = await Promise.all([
       page.waitForEvent("download", { timeout: 30000 }),
@@ -482,7 +488,7 @@ async function main() {
     await page.waitForTimeout(400);
     await page.locator("#target-size").fill("0.02");
     await page.getByRole("button", { name: "MB", exact: true }).click();
-    await page.getByRole("button", { name: /to exact size$/i }).click();
+    await page.getByRole("button", { name: /toward target$/i }).click();
     await page.locator('[data-testid="output-bytes"]').waitFor({ timeout: 30000 });
     const mbAttr = await page.locator('[data-testid="output-bytes"]').getAttribute("data-bytes");
     const mbUi = Number(mbAttr || 0);
@@ -494,7 +500,12 @@ async function main() {
     await mdl2.saveAs(mOut2);
     const mbSize = fs.statSync(mOut2).size;
     const expectMb = Math.round(0.02 * 1024 * 1024);
-    const outOk = cSize === 3072 && mbSize === expectMb && mbUi === expectMb;
+    const outOk =
+      cSize > 0 &&
+      cSize <= 3072 * 1.2 &&
+      mbSize > 0 &&
+      mbSize <= expectMb * 1.05 &&
+      mbUi > 0;
     check(
       matrix,
       "Compressor",

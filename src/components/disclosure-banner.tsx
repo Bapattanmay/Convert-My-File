@@ -7,10 +7,10 @@ export function DisclosureBanner() {
         <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[#D4AF37] sm:mt-0" />
         <p className="leading-relaxed text-[#CBD5E1]">
           <span className="font-semibold text-[#F7F4EE]">Disclosure:</span>{" "}
-          Uploaded files are processed in an ephemeral workspace and
-          automatically wiped after download or within{" "}
+          Your files stay on your device. Processing is ephemeral and wiped
+          after download or within{" "}
           <span className="font-semibold text-[#D4AF37]">3 minutes</span> if
-          left idle. Nothing is stored on our servers.
+          left idle. We don&apos;t build a document archive.
         </p>
       </div>
     </div>

@@ -11,7 +11,7 @@
     "start": "next start",
     "lint": "eslint",
     "test:e2e": "node scripts/e2e-qa.cjs",
-    "test": "node --import tsx --test src/lib/admin-metrics.test.ts"
+    "test": "node --import tsx --test src/lib/admin-metrics.test.ts src/lib/admin-location.test.ts src/lib/product-hardening.test.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",

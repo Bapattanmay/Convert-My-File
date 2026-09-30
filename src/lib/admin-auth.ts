@@ -1,10 +1,16 @@
 import { auth } from "@/auth";
+import { isProductionRuntime } from "@/lib/runtime-secrets";
 
-/** Comma/space-separated allowlist. Default includes owner email. */
+/** Comma/space-separated allowlist. No default in production. */
 export function adminEmails(): string[] {
-  // Prefer ADMIN_EMAILS only — do not fall back to legacy ADMIN_USERNAME
-  // (which may be a non-email login id and would block real admins).
-  const raw = process.env.ADMIN_EMAILS || "bapattanmay@gmail.com";
+  const raw = (process.env.ADMIN_EMAILS || "").trim();
+  if (!raw) {
+    if (isProductionRuntime()) {
+      // Fail-closed: empty allowlist denies every admin check
+      return [];
+    }
+    return ["bapattanmay@gmail.com"];
+  }
   return raw
     .split(/[,;\s]+/)
     .map((e) => e.trim().toLowerCase())

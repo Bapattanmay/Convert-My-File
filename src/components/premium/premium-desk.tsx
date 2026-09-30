@@ -100,7 +100,7 @@ const PANELS: { id: PanelId; title: string; blurb: string }[] = [
   {
     id: "merge-compress",
     title: "Merge + compress",
-    blurb: "Combine then hit an exact size target.",
+    blurb: "Combine then approach a target size (≤ when possible).",
   },
   {
     id: "sign",
@@ -167,7 +167,7 @@ export function PremiumDesk() {
           >
             Sign in with Google
           </button>{" "}
-          then Upgrade (or use a PREMIUM_EMAILS allowlisted account).
+          then sign in with a PREMIUM_EMAILS allowlisted account (paid checkout coming soon).
         </p>
       ) : null}
 
@@ -207,7 +207,7 @@ export function PremiumDesk() {
               Premium required for this workflow
             </p>
             <p className="mt-1 text-sm text-[#64748B]">
-              Use Upgrade above, or sign in as an allowlisted Premium email.
+              Sign in as an allowlisted Premium email, or wait for paid checkout.
             </p>
           </div>
         ) : (
@@ -1148,7 +1148,7 @@ function MergeCompressPanel() {
   return (
     <PanelShell
       title="Merge + compress"
-      desc="One-pass: merge supported docs, then hit an exact size."
+      desc="One-pass: merge supported docs, then approach your target size."
     >
       <Button
         type="button"
@@ -1564,7 +1564,7 @@ function MediaPanel() {
   return (
     <PanelShell
       title="Video & audio"
-      desc="Hit an exact target size for MP4 / MOV / MP3 (client-side byte pack)."
+      desc="Approach a target size for MP4 / MOV / MP3 (best-effort client pack; not exact bitrate)."
     >
       <Button
         type="button"

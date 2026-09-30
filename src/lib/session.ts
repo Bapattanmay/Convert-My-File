@@ -1,16 +1,27 @@
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { auth } from "@/auth";
+import {
+  isProductionRuntime,
+  resolveSessionSecret,
+} from "@/lib/runtime-secrets";
 
 const USER_COOKIE = "cmf_session";
 const ADMIN_COOKIE = "cmf_admin";
 
 function secretKey() {
-  const secret =
-    process.env.SESSION_SECRET ||
-    process.env.AUTH_SECRET ||
-    process.env.NEXTAUTH_SECRET ||
-    "convert-my-file-dev-secret-change-me";
+  const secret = resolveSessionSecret();
+  if (!secret) {
+    const building =
+      process.env.NEXT_PHASE === "phase-production-build" ||
+      process.env.npm_lifecycle_event === "build";
+    if (isProductionRuntime() && !building) {
+      throw new Error(
+        "SESSION_SECRET (or AUTH_SECRET / NEXTAUTH_SECRET) is required in production."
+      );
+    }
+    return new TextEncoder().encode("convert-my-file-dev-secret-change-me");
+  }
   return new TextEncoder().encode(secret);
 }
 

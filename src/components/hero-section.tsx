@@ -31,8 +31,8 @@ export function HeroSection() {
           FILE HANDLING.
         </h1>
         <p className="mt-6 max-w-xl text-base leading-relaxed text-[#475569] sm:text-lg animate-in fade-in slide-in-from-bottom-4 duration-1000">
-          Convert, translate, merge, and resize files in a zero-stack workspace
-          that forgets everything the moment you leave.
+          Your files stay on your device. Convert, translate, merge, and resize
+          in a zero-stack workspace — we don&apos;t build a document archive.
         </p>
         <div className="mt-9 flex flex-wrap gap-3">
           <a

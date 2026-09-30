@@ -4,17 +4,17 @@ const FEATURES = [
   {
     icon: Sparkles,
     title: "Precision tooling",
-    body: "Convert formats, translate documents, merge packs, and hit exact KB/MB targets without leaving the browser.",
+    body: "Convert formats, translate documents, merge packs, and approach your target KB/MB — as close as possible while preserving quality.",
   },
   {
     icon: ShieldOff,
-    title: "Zero persistence",
-    body: "Google Login unlocks tools; file bytes stay in memory and vanish on download or after the three-minute wipe — not archived with your account.",
+    title: "Files on your device",
+    body: "Your files stay on your device. We don't build a document archive. Bytes vanish on download or after the three-minute wipe.",
   },
   {
     icon: Layers3,
     title: "One calm surface",
-    body: "A single workspace for every file job — navy, gold, and cream — designed for focus instead of dashboard clutter.",
+    body: "Free tools need no login. Premium stays behind Google Login. One workspace — navy, gold, and cream — for focus instead of clutter.",
   },
 ];
 

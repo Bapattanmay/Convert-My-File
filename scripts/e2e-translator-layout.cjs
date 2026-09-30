@@ -103,7 +103,7 @@ async function main() {
     await page.goto(BASE + "/#tools", { waitUntil: "domcontentloaded", timeout: 90000 });
     await page.locator("#tools").scrollIntoViewIfNeeded();
     await page
-      .getByText("Google login required")
+      .getByText("Google login for Premium")
       .waitFor({ state: "hidden", timeout: 20000 })
       .catch(() => {});
     await page.getByRole("tab", { name: "Translator" }).click();

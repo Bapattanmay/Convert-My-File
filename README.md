@@ -1,6 +1,6 @@
 # Convert My File
 
-Secure, ephemeral file workspace for convert, translate, merge, and exact-size compress/expand — with **Google Login**-gated tools, usage analytics, and an allowlisted Google **Admin panel**.
+Secure, ephemeral file workspace for convert, translate, merge, and target-size compress/expand. **Your files stay on your device** — we don't build a document archive. Free tools work without login; Premium requires Google Login and a server entitlement.
 
 ## Stack
 
@@ -23,48 +23,49 @@ Open [http://127.0.0.1:43127](http://127.0.0.1:43127).
 
 | Variable | Purpose |
 | --- | --- |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | User Google Login |
-| `AUTH_SECRET` / `NEXTAUTH_SECRET` | Auth.js signing |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google Login (Premium / admin) |
+| `AUTH_SECRET` / `NEXTAUTH_SECRET` | Auth.js signing — **required in production** (fail-closed) |
+| `SESSION_SECRET` | Session JWT signing — **required in production** (may share AUTH_SECRET) |
 | `NEXTAUTH_URL` / `AUTH_URL` | Canonical URL |
-| `ADMIN_EMAILS` | Comma-separated Google emails allowed at `/admin` (default includes `bapattanmay@gmail.com`) |
-| `PREMIUM_EMAILS` | Comma-separated Google emails with Premium desk unlocked (default includes owner). Others can use mock **Upgrade** after Google Login. |
+| `ADMIN_EMAILS` | Comma-separated Google emails for `/admin` — **required in production** |
+| `PREMIUM_EMAILS` | Comma-separated Google emails with Premium desk entitlement (server allowlist only) |
 | `DATA_DIR` | Analytics JSON directory (file fallback / mirror) |
-| `DATABASE_URL` | **Preferred** Postgres URL for durable admin analytics (survives web redeploys) |
+| `DATABASE_URL` | **Preferred** Postgres URL for durable admin analytics |
 | `DATABASE_SSL` | Set `0` to disable TLS (default: TLS on) |
 | `MYMEMORY_EMAIL` | Optional — raises MyMemory free-tier quota for Translator |
 | `GOOGLE_TRANSLATE_API_KEY` | Optional — use Google Cloud Translation instead of MyMemory |
+
+Legacy `ADMIN_USERNAME` / `ADMIN_PASSWORD` are removed. Production refuses to start (or denies admin) if Auth/Admin secrets are missing.
+
+### Free vs Premium
+
+| Area | Login |
+| --- | --- |
+| Converter, Translator, Merger, Compressor | **No login** |
+| Premium desk | Google Login + `PREMIUM_EMAILS` allowlist |
+| Admin `/admin` | Google Login + `ADMIN_EMAILS` |
+
+Paid Premium checkout is **coming soon** (India next step: **Razorpay** or **Cashfree** + webhook → server entitlement). There is no mock cookie/localStorage unlock and no commercial claim of paid Premium without payment.
+
+### Compressor UX
+
+Target file size — get as close as possible to your requested KB/MB while preserving quality. Prefer ≤ target when compressing. Images use iterative quality/resolution; PDFs use rewrite optimization; media is best-effort until server FFmpeg. Copy never promises an exact byte size unless the output truly matches.
 
 ### Admin analytics persistence
 
 Visitor/session/feature/audit data is stored as JSONB in Postgres when `DATABASE_URL` is set. Boot **never** drops existing rows — it only `CREATE TABLE IF NOT EXISTS` and upserts. If Postgres is empty but a local `analytics-store.json` exists, that file is migrated once into Postgres.
 
-On Render **free** web services, local disk is ephemeral and persistent disks are unavailable. Use a Render Postgres database and set `DATABASE_URL` to the **internal** connection string. Paid web plans can also attach a disk at `DATA_DIR`.
-
-Free Render Postgres instances expire ~30 days after creation — upgrade the DB plan before expiry for long-term retention.
+On Render **free** web services, local disk is ephemeral. Use a Render Postgres database and set `DATABASE_URL` to the **internal** connection string.
 
 ### Translator
 
-Client extracts text from Word/PDF/Excel, then `POST /api/translate` calls **MyMemory** (no key) or **Google Cloud Translation** when `GOOGLE_TRANSLATE_API_KEY` is set. Free MyMemory limits apply (~500 chars/chunk, daily quota); long docs are truncated for preview. Preview and download are real target-language text (e.g. Devanagari for Hindi), not English stubs.
-
-### Premium desk
-
-Free tools stay **one file / one language**. The **Premium** tab unlocks:
-
-- Batch convert → ZIP (up to 50 files)
-- PDF Editor — edit your PDF and download
-- 5-language translation pack
-- Page-range merge picker, merge+compress, digital signature stamp
-- Image quality before/after, video/audio exact-size, bulk per-file targets
-
-Unlock via `PREMIUM_EMAILS` allowlist or in-app **Upgrade (mock)** — no payment processor; sets a session cookie + local unlock for testing.
+Client extracts text from Word/PDF/Excel, then `POST /api/translate` calls **MyMemory** (no key) or **Google Cloud Translation** when `GOOGLE_TRANSLATE_API_KEY` is set. Free path works without Google Login.
 
 ### Admin access
 
-1. Open `/admin` — if signed out, use **Sign in with Google** on that page (callback returns to `/admin`).
-2. Only Google emails in `ADMIN_EMAILS` (default `bapattanmay@gmail.com`) see the dashboard.
+1. Open `/admin` — Sign in with Google (callback returns to `/admin`).
+2. Only Google emails in `ADMIN_EMAILS` see the dashboard.
 3. Signed-in non-allowlisted users receive **404**.
-
-Password admin login has been removed.
 
 ### Google redirect URIs
 
@@ -77,9 +78,9 @@ Password admin login has been removed.
 | --- | --- |
 | `npm run dev` | Dev server (port 43127) |
 | `npm run build` / `start` | Production |
-| `npm test` | Admin metrics unit tests |
+| `npm test` | Unit tests |
 | `npm run test:e2e` | Playwright QA |
 
 ## Deploy (Render)
 
-Set Google OAuth secrets, `ADMIN_EMAILS=bapattanmay@gmail.com`, Auth.js URL/secrets, then deploy.
+Set Google OAuth secrets, `ADMIN_EMAILS`, `AUTH_SECRET` / `SESSION_SECRET`, `PREMIUM_EMAILS`, then deploy. Missing Auth/Admin secrets fail closed in production.

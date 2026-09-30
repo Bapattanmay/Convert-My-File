@@ -466,11 +466,4 @@ export async function listSessions(): Promise<UsageSession[]> {
   });
 }
 
-export function adminCredentials() {
-  return {
-    username: process.env.ADMIN_USERNAME || "bapattanmay@gmail.com",
-    password: process.env.ADMIN_PASSWORD || "Bapattanmay@12345",
-  };
-}
-
 export type { FeatureId };

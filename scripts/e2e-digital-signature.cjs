@@ -188,7 +188,7 @@ async function openSign(page) {
   }, FAKE_EMAIL);
   await page.locator("#tools").scrollIntoViewIfNeeded();
   await page
-    .getByText("Google login required")
+    .getByText("Google login for Premium")
     .waitFor({ state: "hidden", timeout: 25000 })
     .catch(() => {});
   await page.getByRole("tab", { name: "Premium", exact: true }).click();

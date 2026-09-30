@@ -179,13 +179,13 @@ async function openConverter(page) {
   await page.locator("#tools").scrollIntoViewIfNeeded();
   // Wait for gate to clear (mocked auth)
   await page
-    .getByText("Google login required")
+    .getByText("Google login for Premium")
     .waitFor({ state: "hidden", timeout: 20000 })
     .catch(() => {});
   await page.getByRole("tab", { name: "Converter" }).click();
   await page.waitForTimeout(400);
   // Confirm Smart Converter is interactive (no lock overlay)
-  const locked = await page.getByText("Google login required").isVisible().catch(() => false);
+  const locked = await page.getByText("Google login for Premium").isVisible().catch(() => false);
   if (locked) {
     throw new Error("Login gate still visible after auth mock");
   }

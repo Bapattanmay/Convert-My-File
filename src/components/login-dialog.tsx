@@ -69,12 +69,12 @@ export function LoginDialog() {
             Login with Google
           </DialogTitle>
           <DialogDescription className="text-sm leading-relaxed text-[#64748B]">
-            Choose your Google account to use Converter, Translator, Merger, and
-            Compressor. As Data Fiduciary under India’s DPDP Act, we receive your
-            Google name, email, and profile picture (when available), and record
-            time spent, features used, and approximate location (browser geo
-            and/or IP). You must be 18+. Details and rights (access, correction,
-            erasure) are in{" "}
+            Sign in for Premium desk features (and admin if allowlisted). Free
+            Converter, Translator, Merger, and Compressor work without login. As
+            Data Fiduciary under India’s DPDP Act, we receive your Google name,
+            email, and profile picture (when available), and record time spent,
+            features used, and approximate IP-based location. You must be 18+.
+            Details and rights (access, correction, erasure) are in{" "}
             <Link
               href="/privacy"
               className="font-semibold text-[#0F172A] underline"

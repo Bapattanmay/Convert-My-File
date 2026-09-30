@@ -2,14 +2,28 @@ import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 import type { NextAuthConfig } from "next-auth";
 import { upsertGoogleSession } from "@/lib/usage-store";
+import {
+  isProductionRuntime,
+  resolveAuthSecret,
+} from "@/lib/runtime-secrets";
 
-function authSecret() {
+function isBuildPhase(): boolean {
   return (
-    process.env.AUTH_SECRET ||
-    process.env.NEXTAUTH_SECRET ||
-    process.env.SESSION_SECRET ||
-    "convert-my-file-dev-secret-change-me"
+    process.env.NEXT_PHASE === "phase-production-build" ||
+    process.env.npm_lifecycle_event === "build"
   );
+}
+
+function authSecret(): string {
+  const secret = resolveAuthSecret();
+  if (secret) return secret;
+  // Fail-closed at runtime in production; allow build phase without secrets.
+  if (isProductionRuntime() && !isBuildPhase()) {
+    throw new Error(
+      "AUTH_SECRET (or NEXTAUTH_SECRET / SESSION_SECRET) is required in production."
+    );
+  }
+  return "convert-my-file-dev-secret-change-me";
 }
 
 export function isGoogleConfigured() {

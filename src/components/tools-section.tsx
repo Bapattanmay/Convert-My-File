@@ -20,8 +20,8 @@ const TABS = [
 
 const TRACKABLE = new Set(["converter", "translator", "merger", "compressor"]);
 
-function GateOverlay() {
-  const { setLoginOpen, loading } = useAuth();
+function PremiumGateOverlay() {
+  const { setLoginOpen, loading, user } = useAuth();
   if (loading) {
     return (
       <div className="absolute inset-0 z-10 flex items-center justify-center rounded-[28px] bg-[#FBF9F5]/85 backdrop-blur-[2px]">
@@ -29,6 +29,7 @@ function GateOverlay() {
       </div>
     );
   }
+  if (user) return null;
   return (
     <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 rounded-[28px] bg-[#FBF9F5]/92 p-6 text-center backdrop-blur-[2px]">
       <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#0F172A] text-[#D4AF37]">
@@ -36,12 +37,11 @@ function GateOverlay() {
       </span>
       <div>
         <p className="font-[family-name:var(--font-display)] text-lg font-bold text-[#0F172A]">
-          Google login required
+          Google login for Premium
         </p>
         <p className="mt-2 max-w-sm text-sm text-[#64748B]">
-          Sign in with Google to use Converter, Translator, Merger, and
-          Compressor. We record your Google identity, usage time, features, and
-          approximate location per our Privacy Policy.
+          Converter, Translator, Merger, and Compressor work without an account.
+          Premium desk features require Google Login and a server entitlement.
         </p>
       </div>
       <button
@@ -57,8 +57,8 @@ function GateOverlay() {
 
 export function ToolsSection() {
   const { user, trackFeature } = useAuth();
-  const gated = !user;
   const [tab, setTab] = useState("converter");
+  const premiumGated = tab === "premium" && !user;
 
   useEffect(() => {
     if (user && TRACKABLE.has(tab)) trackFeature(tab);
@@ -74,12 +74,11 @@ export function ToolsSection() {
           <h2 className="mt-3 font-[family-name:var(--font-display)] text-3xl font-bold tracking-tight text-[#0F172A] sm:text-4xl">
             Choose a tool. Shape the file. Download and forget.
           </h2>
-          {gated ? (
-            <p className="mt-3 text-sm text-[#64748B]">
-              Tools unlock after Google Login. Identity and usage analytics help
-              us operate and improve the platform.
-            </p>
-          ) : null}
+          <p className="mt-3 text-sm text-[#64748B]">
+            Free Converter, Translator, Merger, and Compressor — no Google login
+            required. Premium stays behind login and server entitlement. Your
+            files stay on your device; we don&apos;t build a document archive.
+          </p>
         </div>
 
         <Tabs
@@ -100,7 +99,7 @@ export function ToolsSection() {
           </TabsList>
 
           <div className="relative rounded-[32px] border border-[#E6DFD2]/90 bg-white/90 p-4 shadow-[0_28px_80px_rgba(15,23,42,0.07)] backdrop-blur-sm sm:p-6">
-            {gated ? <GateOverlay /> : null}
+            {premiumGated ? <PremiumGateOverlay /> : null}
 
             <TabsContent value="converter" className="outline-none">
               <ConverterTool />

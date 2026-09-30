@@ -119,7 +119,7 @@ async function openPremium(page, titleRe) {
     await page.locator("#tools").scrollIntoViewIfNeeded();
     // Gate overlay must clear (auth mocks) before Premium desk is usable.
     await page
-      .getByText("Google login required")
+      .getByText("Google login for Premium")
       .waitFor({ state: "hidden", timeout: 60000 });
     await page.getByRole("tab", { name: "Premium", exact: true }).click();
     await page

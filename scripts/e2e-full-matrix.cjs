@@ -95,12 +95,12 @@ async function openTab(page, tabName) {
   }, FAKE_EMAIL);
   await page.locator("#tools").scrollIntoViewIfNeeded();
   await page
-    .getByText("Google login required")
+    .getByText("Google login for Premium")
     .waitFor({ state: "hidden", timeout: 25000 })
     .catch(() => {});
   await page.getByRole("tab", { name: tabName, exact: true }).click();
   await page.waitForTimeout(500);
-  const locked = await page.getByText("Google login required").isVisible().catch(() => false);
+  const locked = await page.getByText("Google login for Premium").isVisible().catch(() => false);
   if (locked) throw new Error("Login gate still visible on " + tabName);
 }
 

@@ -15,9 +15,10 @@ export function ZeroStackSection() {
             An ephemeral env that never keeps your files.
           </h2>
           <p className="mt-4 max-w-xl text-base leading-relaxed text-[#64748B]">
-            Processing happens in an isolated client session. There is no cloud
-            archive, no recovery vault, and no silent sync. When the wipe timer
-            hits zero — or the moment you download — the workspace is cleared.
+            Your files stay on your device. Processing happens in an isolated
+            client session — no cloud archive, no recovery vault, no silent
+            sync. When the wipe timer hits zero — or the moment you download —
+            the workspace is cleared.
           </p>
         </div>
 

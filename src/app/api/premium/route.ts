@@ -1,11 +1,6 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { auth } from "@/auth";
-import {
-  isPremiumEmail,
-  PREMIUM_COOKIE,
-  type PremiumStatus,
-} from "@/lib/premium-access";
+import { isPremiumEmail, type PremiumStatus } from "@/lib/premium-access";
 
 export async function GET() {
   const session = await auth();
@@ -24,22 +19,15 @@ export async function GET() {
     return NextResponse.json(status);
   }
 
-  const jar = await cookies();
-  const cookie = jar.get(PREMIUM_COOKIE)?.value || "";
-  if (cookie.toLowerCase() === email.toLowerCase()) {
-    const status: PremiumStatus = {
-      isPremium: true,
-      source: "upgrade",
-      email,
-    };
-    return NextResponse.json(status);
-  }
-
   const status: PremiumStatus = { isPremium: false, source: "none", email };
   return NextResponse.json(status);
 }
 
-/** Mock checkout — unlocks Premium for the signed-in Google email (no payment). */
+/**
+ * Paid Premium checkout is not live.
+ * Do not set entitlement cookies or claim a commercial paid unlock.
+ * India next step: Razorpay or Cashfree + webhook → server entitlement row.
+ */
 export async function POST() {
   const session = await auth();
   const email = session?.user?.email?.trim();
@@ -47,20 +35,25 @@ export async function POST() {
     return NextResponse.json({ error: "Not logged in." }, { status: 401 });
   }
 
-  const res = NextResponse.json({
-    isPremium: true,
-    source: isPremiumEmail(email) ? "allowlist" : "upgrade",
-    email,
-    note: "Mock Upgrade — no payment processed. Premium unlocked for this browser session.",
-  } satisfies PremiumStatus & { note: string });
+  if (isPremiumEmail(email)) {
+    const status: PremiumStatus = {
+      isPremium: true,
+      source: "allowlist",
+      email,
+    };
+    return NextResponse.json(status);
+  }
 
-  res.cookies.set(PREMIUM_COOKIE, email, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 365,
-  });
-
-  return res;
+  return NextResponse.json(
+    {
+      isPremium: false,
+      source: "none",
+      email,
+      payments: "coming_soon",
+      paymentProvidersIndia: ["Razorpay", "Cashfree"],
+      error:
+        "Paid Premium checkout is coming soon. We do not unlock Premium without payment. For India, the next integration path is Razorpay or Cashfree with a server-side entitlement after webhook confirmation.",
+    } satisfies PremiumStatus & { error: string },
+    { status: 402 }
+  );
 }

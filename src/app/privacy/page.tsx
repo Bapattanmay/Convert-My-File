@@ -91,12 +91,10 @@ export default function PrivacyPage() {
               session timestamps, and browser user-agent.
             </li>
             <li>
-              <strong className="text-[#0F172A]">Location</strong> — if you
-              allow browser geolocation: latitude and longitude, which we may
-              reverse-geocode to city / region / country. If geolocation is
-              denied or unavailable: approximate city / region / country and
-              coordinates derived from your IP address via public geo/IP
-              providers, plus a truncated IP used for that lookup.
+              <strong className="text-[#0F172A]">Location</strong> — approximate
+              city / region / country (and coarse coordinates) derived from your
+              IP address via public geo/IP providers, plus a truncated IP used
+              for that lookup. We do not request precise browser geolocation.
             </li>
             <li>
               <strong className="text-[#0F172A]">Admin analytics views</strong> —
@@ -111,11 +109,11 @@ export default function PrivacyPage() {
           </ul>
           <p className="mt-3">
             <strong className="text-[#0F172A]">File contents</strong> (documents,
-            images, media you convert, merge, compress, translate, or edit) are{" "}
-            <em>not</em> permanently archived by Convert My File. They are held
-            in your browser/session for the active job and discarded on download
-            or when the wipe timer completes (about three minutes if not
-            retrieved).
+            images, media you convert, merge, compress, translate, or edit):
+            your files stay on your device. We don&apos;t build a document
+            archive. Contents are held in your browser/session for the active
+            job and discarded on download or when the wipe timer completes
+            (about three minutes if not retrieved).
           </p>
         </section>
 
@@ -126,8 +124,9 @@ export default function PrivacyPage() {
           <ul className="mt-3 list-disc space-y-2 pl-5">
             <li>
               <strong className="text-[#0F172A]">Service delivery</strong> —
-              authenticate you with Google, unlock workspace tools, apply
-              Premium allowlist / mock Upgrade where configured.
+              authenticate you with Google for Premium and admin, and apply
+              server-side Premium allowlist entitlement where configured. Free
+              Converter / Translator / Merger / Compressor do not require login.
             </li>
             <li>
               <strong className="text-[#0F172A]">Security and abuse prevention</strong>{" "}
@@ -152,19 +151,16 @@ export default function PrivacyPage() {
             4. Notice and consent
           </h2>
           <p className="mt-3">
-            Before Google Login, we show a notice that we receive your Google
-            identity and record usage time, features used, and approximate
-            location. You must accept the{" "}
+            Before Google Login (for Premium or admin), we show a notice that we
+            receive your Google identity and record usage time, features used,
+            and approximate IP-based location. You must accept the{" "}
             <Link href="/terms" className="font-semibold text-[#0F172A] underline">
               Terms of Service
             </Link>{" "}
-            and this Privacy Policy (checkbox) to continue. Signing in and
-            continued use of the tools after that acceptance constitutes your
-            consent to the processing described here for those purposes.
-          </p>
-          <p className="mt-3">
-            Browser geolocation is optional: your browser will ask separately.
-            If you deny it, we fall back to IP-based approximation only.
+            and this Privacy Policy (checkbox) to continue. Signing in
+            constitutes your consent to the processing described here for those
+            purposes. Free tools may be used without signing in; file bytes stay
+            in your browser.
           </p>
         </section>
 

@@ -1,24 +1,23 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import {
-  readLocalPremiumEmails,
-  writeLocalPremiumEmail,
-  type PremiumStatus,
-} from "@/lib/premium-access";
+import type { PremiumStatus } from "@/lib/premium-access";
 import { useAuth } from "@/components/auth-provider";
 
 export type UsePremium = {
   isPremium: boolean;
   source: PremiumStatus["source"];
   loading: boolean;
-  upgrade: () => Promise<void>;
+  /** Requests paid upgrade — returns coming-soon until payments ship. */
+  requestUpgrade: () => Promise<{
+    ok: boolean;
+    message: string;
+    payments?: "coming_soon";
+  }>;
   refresh: () => Promise<void>;
 };
 
-/**
- * Premium = PREMIUM_EMAILS allowlist OR mock Upgrade cookie/localStorage.
- */
+/** Premium = server PREMIUM_EMAILS allowlist only (no fake cookie unlock). */
 export function usePremium(): UsePremium {
   const { user } = useAuth();
   const [status, setStatus] = useState<PremiumStatus>({
@@ -32,32 +31,17 @@ export function usePremium(): UsePremium {
     try {
       const res = await fetch("/api/premium", { credentials: "include" });
       const data = (await res.json()) as PremiumStatus;
-      let isPremium = !!data.isPremium;
-      let source = data.source || "none";
-      if (!isPremium && user?.email) {
-        const local = readLocalPremiumEmails();
-        if (local.includes(user.email.trim().toLowerCase())) {
-          isPremium = true;
-          source = "upgrade";
-        }
-      }
       setStatus({
-        isPremium,
-        source: isPremium ? source : "none",
+        isPremium: !!data.isPremium && data.source === "allowlist",
+        source: data.isPremium ? "allowlist" : "none",
         email: data.email || user?.email,
       });
     } catch {
-      if (user?.email) {
-        const local = readLocalPremiumEmails();
-        const hit = local.includes(user.email.trim().toLowerCase());
-        setStatus({
-          isPremium: hit,
-          source: hit ? "upgrade" : "none",
-          email: user.email,
-        });
-      } else {
-        setStatus({ isPremium: false, source: "none" });
-      }
+      setStatus({
+        isPremium: false,
+        source: "none",
+        email: user?.email,
+      });
     } finally {
       setLoading(false);
     }
@@ -67,25 +51,36 @@ export function usePremium(): UsePremium {
     void refresh();
   }, [refresh]);
 
-  const upgrade = useCallback(async () => {
-    if (!user?.email) throw new Error("Sign in with Google first.");
+  const requestUpgrade = useCallback(async () => {
+    if (!user?.email) {
+      return { ok: false, message: "Sign in with Google first." };
+    }
     const res = await fetch("/api/premium", {
       method: "POST",
       credentials: "include",
     });
-    if (!res.ok) {
-      const data = (await res.json().catch(() => ({}))) as { error?: string };
-      throw new Error(data.error || "Upgrade failed");
+    const data = (await res.json().catch(() => ({}))) as PremiumStatus & {
+      error?: string;
+    };
+    if (data.isPremium && data.source === "allowlist") {
+      await refresh();
+      return { ok: true, message: "Premium active via allowlist." };
     }
-    writeLocalPremiumEmail(user.email);
     await refresh();
+    return {
+      ok: false,
+      message:
+        data.error ||
+        "Paid Premium is coming soon (India: Razorpay / Cashfree).",
+      payments: "coming_soon" as const,
+    };
   }, [user?.email, refresh]);
 
   return {
     isPremium: status.isPremium,
     source: status.source,
     loading,
-    upgrade,
+    requestUpgrade,
     refresh,
   };
 }

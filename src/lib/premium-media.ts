@@ -1,6 +1,6 @@
-/** Premium compressor helpers: quality preview, media exact-size, bulk targets */
+/** Premium compressor helpers: quality preview, media target size, bulk targets */
 
-import { resizeToExactBytes } from "@/lib/file-utils";
+import { approachTargetSize, resizeTowardTargetBytes } from "@/lib/file-utils";
 
 export function isImageMedia(file: File): boolean {
   return (
@@ -74,7 +74,7 @@ export type BulkTarget = {
   targetBytes: number;
 };
 
-/** Resize each file to its own exact byte target; return ZIP via caller. */
+/** Approach each file’s target size (prefer ≤ target); return parts for ZIP. */
 export async function compressToExactTargets(
   items: BulkTarget[],
   onProgress?: (done: number, total: number) => void
@@ -85,25 +85,23 @@ export async function compressToExactTargets(
     if (!isPremiumCompressable(file)) {
       throw new Error(`Unsupported for premium compress: ${file.name}`);
     }
-    const buf = await file.arrayBuffer();
-    const blob = await resizeToExactBytes(
-      buf,
-      targetBytes,
-      file.type || "application/octet-stream"
-    );
+    const outcome = await approachTargetSize(file, targetBytes, {
+      mime: file.type || "application/octet-stream",
+      nameHint: file.name,
+    });
     const ext = file.name.includes(".")
       ? file.name.slice(file.name.lastIndexOf("."))
       : "";
     const base = file.name.replace(/\.[^.]+$/, "") || `file-${i + 1}`;
-    out.push({ name: `${base}.${targetBytes}b${ext}`, blob });
+    out.push({ name: `${base}.near${targetBytes}b${ext}`, blob: outcome.blob });
     onProgress?.(i + 1, items.length);
   }
   return out;
 }
 
 /**
- * Video/audio → exact target size (client-side byte pack).
- * True codec re-encode needs native tools; this hits the size SLA for Premium demos.
+ * Video/audio → approach target size (client-side best effort).
+ * True H.264/AAC bitrate control needs server FFmpeg; copy must not claim exact.
  */
 export async function mediaToTargetSize(
   file: File,
@@ -113,7 +111,7 @@ export async function mediaToTargetSize(
     throw new Error("Upload an MP4, MOV, or MP3 file.");
   }
   const buf = await file.arrayBuffer();
-  return resizeToExactBytes(
+  return resizeTowardTargetBytes(
     buf,
     targetBytes,
     file.type ||

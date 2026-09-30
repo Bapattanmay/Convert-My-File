@@ -33,9 +33,16 @@ async function main() {
   );
 
   await page.locator("#tools").scrollIntoViewIfNeeded();
+  // Free tools are usable without login
   assert(
-    await page.getByText("Google login required").isVisible(),
-    "Tools gated with Google login required"
+    await page.getByRole("tab", { name: "Converter" }).isVisible(),
+    "Converter tab visible without login"
+  );
+  await page.getByRole("tab", { name: "Premium" }).click();
+  await page.waitForTimeout(300);
+  assert(
+    await page.getByText("Google login for Premium").isVisible(),
+    "Premium gated with Google login"
   );
   await page.screenshot({
     path: path.join(OUT, "google-gate-locked.png"),

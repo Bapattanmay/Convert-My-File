@@ -56,13 +56,14 @@ export default function TermsPage() {
             2. Google sign-in and consent
           </h2>
           <p className="mt-3">
-            Workspace tools require Google OAuth Login. Before continuing you
-            must accept these Terms and the Privacy Policy. You consent to our
-            receiving from Google (via Auth.js / NextAuth) your name, email, and
-            profile picture when available, and to our recording time spent,
-            features used, and approximate location (browser geolocation and/or
-            IP-based). Details are in the Privacy Policy. You must be at least
-            18 years old to create a session and use the tools.
+            Free Converter, Translator, Merger, and Compressor do not require
+            login. Premium desk features and the admin panel require Google
+            OAuth. Before signing in you must accept these Terms and the Privacy
+            Policy. You consent to our receiving from Google (via Auth.js /
+            NextAuth) your name, email, and profile picture when available, and
+            to our recording time spent, features used, and approximate
+            IP-based location. Details are in the Privacy Policy. You must be at
+            least 18 years old to create a signed-in session.
           </p>
         </section>
 
@@ -71,12 +72,13 @@ export default function TermsPage() {
             3. Ephemeral file processing
           </h2>
           <p className="mt-3">
-            Uploaded file contents are handled in session memory for the active
-            job. Files are wiped after download or automatically within about
-            three minutes if not retrieved. You are responsible for keeping
-            copies of any outputs you need. Google identity and usage analytics
-            are separate from file contents and may be retained longer on the
-            server (including Postgres when configured).
+            Your files stay on your device. We don&apos;t build a document
+            archive. Uploaded contents are handled in session memory for the
+            active job and wiped after download or within about three minutes if
+            not retrieved. You are responsible for keeping copies of any outputs
+            you need. Google identity and usage analytics (when signed in) are
+            separate from file contents and may be retained longer on the server
+            (including Postgres when configured).
           </p>
         </section>
 
@@ -90,8 +92,8 @@ export default function TermsPage() {
               malware or unlawful material.
             </li>
             <li>
-              Do not bypass Google Login, impersonate others, scrape the service
-              abusively, or attack the infrastructure.
+              Do not bypass Premium / admin Google Login gates, impersonate
+              others, scrape the service abusively, or attack the infrastructure.
             </li>
             <li>
               Do not use Translator / Premium language batch to send passwords,
@@ -107,15 +109,15 @@ export default function TermsPage() {
 
         <section>
           <h2 className="font-[family-name:var(--font-display)] text-xl font-semibold text-[#0F172A]">
-            5. Premium and mock Upgrade
+            5. Premium entitlement
           </h2>
           <p className="mt-3">
-            Some workflows are marked Premium. Access may be granted via an
-            allowlisted email or a mock “Upgrade” path used for testing—no real
-            payment processor is charged unless we clearly introduce paid
-            billing later. Premium features remain subject to these Terms and
-            ephemeral file handling. We may change Premium packaging or revoke
-            mock upgrades for abuse.
+            Some workflows are marked Premium. Access is granted only via a
+            server-side allowlist (or a future paid checkout with webhook-backed
+            entitlement). We do not unlock Premium through a fake cookie or
+            claim a commercial paid purchase without payment. Paid billing for
+            India is planned via Razorpay or Cashfree. Premium features remain
+            subject to these Terms and ephemeral file handling.
           </p>
         </section>
 

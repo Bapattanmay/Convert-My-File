@@ -6,7 +6,7 @@ import {
   appendDocumentPages,
   type MergeKind,
 } from "@/lib/merge";
-import { resizeToExactBytes } from "@/lib/file-utils";
+import { approachTargetSize } from "@/lib/file-utils";
 import {
   PDFDocument,
   PDFArray,
@@ -153,14 +153,17 @@ export async function mergeWithPageRangesDetailed(
   return { blob: pdfBytesToBlob(await merged.save()), pageCount };
 }
 
-/** Merge then resize to an exact target byte size. */
+/** Merge then approach a target byte size (prefer ≤ target; not guaranteed exact). */
 export async function mergeAndCompress(
   inputs: RangedMergeInput[],
   targetBytes: number
 ): Promise<Blob> {
   const { blob: merged } = await mergeWithPageRangesDetailed(inputs);
-  const buf = await merged.arrayBuffer();
-  return resizeToExactBytes(buf, targetBytes, "application/pdf");
+  const outcome = await approachTargetSize(merged, targetBytes, {
+    mime: "application/pdf",
+    nameHint: "merged.pdf",
+  });
+  return outcome.blob;
 }
 
 export type SignatureOptions = {

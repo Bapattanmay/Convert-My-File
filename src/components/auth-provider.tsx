@@ -40,32 +40,6 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-async function readGeo(): Promise<{
-  latitude?: number;
-  longitude?: number;
-  geoGranted: boolean;
-}> {
-  if (typeof navigator === "undefined" || !navigator.geolocation) {
-    return { geoGranted: false };
-  }
-  try {
-    const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-      navigator.geolocation.getCurrentPosition(resolve, reject, {
-        enableHighAccuracy: false,
-        timeout: 5000,
-        maximumAge: 600_000,
-      });
-    });
-    return {
-      latitude: pos.coords.latitude,
-      longitude: pos.coords.longitude,
-      geoGranted: true,
-    };
-  } catch {
-    return { geoGranted: false };
-  }
-}
-
 function AuthInner({ children }: { children: ReactNode }) {
   const { data: session, status } = useSession();
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -96,22 +70,14 @@ function AuthInner({ children }: { children: ReactNode }) {
     void refreshUsage();
   }, [status, session?.usageSessionId, refreshUsage]);
 
+  // Approximate country/city only via IP — no precise browser geolocation.
   const syncLocation = useEffectEvent(async () => {
     if (!session?.usageSessionId) return;
-    const geo = await readGeo();
     await fetch("/api/track", {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(
-        geo.geoGranted
-          ? {
-              latitude: geo.latitude,
-              longitude: geo.longitude,
-              syncIpLocation: true,
-            }
-          : { syncIpLocation: true }
-      ),
+      body: JSON.stringify({ syncIpLocation: true }),
     }).catch(() => {});
     void refreshUsage();
   });

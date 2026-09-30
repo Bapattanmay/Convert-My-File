@@ -65,7 +65,7 @@ async function main() {
   if (await loginBtn.isVisible().catch(() => false)) {
     // Google gate — for local without completing Google, tools may be gated.
     // Use API bypass? Tools need Google. Check if overlay present.
-    const gated = await page.getByText(/Google login required|Login required/i).count();
+    const gated = await page.getByText(/Google login for Premium|Login required/i).count();
     if (gated) {
       // Seed a session via creating usage isn't enough — need Auth.js.
       // For conversion unit proof, call convert in-page by injecting after mocking? 

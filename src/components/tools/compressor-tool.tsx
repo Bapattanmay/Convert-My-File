@@ -8,10 +8,11 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { useWipeTimer } from "@/components/wipe-provider";
 import {
+  approachTargetSize,
   downloadBlob,
   formatBytes,
-  resizeToExactBytes,
   sleep,
+  type ApproachTargetResult,
 } from "@/lib/file-utils";
 import { usePremium } from "@/hooks/use-premium";
 import { PremiumUpgradeCard } from "@/components/premium/premium-upgrade-card";
@@ -43,7 +44,7 @@ export function CompressorTool() {
   const [unit, setUnit] = useState<Unit>("KB");
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [result, setResult] = useState<Blob | null>(null);
+  const [result, setResult] = useState<ApproachTargetResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -112,26 +113,19 @@ export function CompressorTool() {
     try {
       for (const step of [22, 48, 72, 91]) {
         setProgress(step);
-        await sleep(100);
+        await sleep(80);
       }
-      const buf = await file.arrayBuffer();
-      const blob = await resizeToExactBytes(
-        buf,
-        targetBytes,
-        file.type || "application/octet-stream"
-      );
-      if (blob.size !== targetBytes) {
-        throw new Error(
-          `Exact size failed: got ${blob.size} bytes, expected ${targetBytes}.`
-        );
-      }
+      const outcome = await approachTargetSize(file, targetBytes, {
+        mime: file.type || "application/octet-stream",
+        nameHint: file.name,
+      });
       setProgress(100);
-      setResult(blob);
+      setResult(outcome);
     } catch (e) {
       setError(
         e instanceof Error
           ? e.message
-          : "Could not reach the exact target size. Try again."
+          : "Could not approach the target size. Try again."
       );
       setResult(null);
     } finally {
@@ -141,11 +135,14 @@ export function CompressorTool() {
 
   const download = () => {
     if (!result || !file) return;
-    const ext = file.name.includes(".")
-      ? file.name.slice(file.name.lastIndexOf("."))
-      : "";
+    const ext =
+      result.method === "image-reencode" && !/\.jpe?g$/i.test(file.name)
+        ? ".jpg"
+        : file.name.includes(".")
+          ? file.name.slice(file.name.lastIndexOf("."))
+          : "";
     downloadBlob(
-      result,
+      result.blob,
       `${file.name.replace(/\.[^.]+$/, "")}.${targetValue}${unit.toLowerCase()}${ext}`
     );
     markDownloaded();
@@ -157,7 +154,9 @@ export function CompressorTool() {
         Compressor / Expander
       </h3>
       <p className="mt-1 text-sm leading-relaxed text-[#64748B]">
-        Free: one file, exact KB/MB. Premium: quality preview, video/audio, and
+        Target file size — get as close as possible to your requested KB/MB
+        while preserving quality. We prefer results at or under your target when
+        compressing. Free: one file. Premium: quality preview, video/audio, and
         bulk per-file targets on the Premium desk.
       </p>
       {!isPremium ? (
@@ -231,7 +230,7 @@ export function CompressorTool() {
       <div className="mt-4 grid gap-4 sm:grid-cols-[1fr_auto]">
         <div>
           <Label htmlFor="target-size" className="text-[#64748B]">
-            Exact target size
+            Target file size
           </Label>
           <Input
             id="target-size"
@@ -275,7 +274,7 @@ export function CompressorTool() {
           Mode: <span className="font-semibold text-[#D4AF37]">{mode}</span>
         </p>
         <p className="mt-1">
-          Exact target:{" "}
+          Target:{" "}
           <span className="font-semibold text-white">
             {targetValue || "—"} {unit}
           </span>
@@ -286,17 +285,24 @@ export function CompressorTool() {
             </span>
           ) : null}
         </p>
+        <p className="mt-1 text-xs text-[#94A3B8]">
+          We aim as close as possible — prefer ≤ target when compressing. Exact
+          byte match is not guaranteed.
+        </p>
         {result ? (
           <p
             className="mt-1 text-[#86EFAC]"
             data-testid="output-bytes"
-            data-bytes={result.size}
+            data-bytes={result.achievedBytes}
           >
-            Output size: {formatBytes(result.size)} ·{" "}
-            {result.size.toLocaleString()} bytes
-            {targetBytes && result.size === targetBytes
-              ? " · exact match"
-              : " · MISMATCH"}
+            Output: {formatBytes(result.achievedBytes)} ·{" "}
+            {result.achievedBytes.toLocaleString()} bytes
+            {targetBytes && result.achievedBytes === targetBytes
+              ? " · matched target"
+              : result.atOrUnderTarget
+                ? " · at or under target"
+                : " · closest achievable"}
+            <span className="text-[#94A3B8]"> · {result.method}</span>
           </p>
         ) : null}
       </div>
@@ -326,7 +332,7 @@ export function CompressorTool() {
               <Loader2 className="animate-spin" /> Working
             </>
           ) : (
-            `${mode} to exact size`
+            `${mode} toward target`
           )}
         </Button>
         {result ? (

@@ -14,7 +14,7 @@ export function PremiumUpgradeCard({
   feature?: string;
 }) {
   const { user, setLoginOpen } = useAuth();
-  const { isPremium, upgrade, loading, source } = usePremium();
+  const { isPremium, requestUpgrade, loading, source } = usePremium();
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -29,7 +29,7 @@ export function PremiumUpgradeCard({
         }
       >
         <Crown className="inline h-4 w-4 text-[#C5A880]" /> Premium active
-        {source === "allowlist" ? " (allowlist)" : " (Upgrade)"}
+        {source === "allowlist" ? " (allowlist)" : ""}
         {feature ? ` · ${feature}` : ""}
       </div>
     );
@@ -42,11 +42,20 @@ export function PremiumUpgradeCard({
     }
     setBusy(true);
     setErr(null);
+    setNote(null);
     try {
-      await upgrade();
-      setNote("Premium unlocked — mock checkout, no payment.");
+      const result = await requestUpgrade();
+      if (result.ok) {
+        setNote(result.message);
+      } else {
+        setNote(
+          result.payments === "coming_soon"
+            ? "Payments coming soon — Razorpay / Cashfree for India. No fake unlock."
+            : result.message
+        );
+      }
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "Upgrade failed");
+      setErr(e instanceof Error ? e.message : "Upgrade unavailable");
     } finally {
       setBusy(false);
     }
@@ -66,13 +75,14 @@ export function PremiumUpgradeCard({
         </span>
         <div className="min-w-0 flex-1">
           <p className="font-[family-name:var(--font-display)] text-base font-semibold text-[#0F172A]">
-            {feature ? `${feature} is Premium` : "Unlock Premium"}
+            {feature ? `${feature} is Premium` : "Premium"}
           </p>
           <p className="mt-1 text-sm leading-relaxed text-[#64748B]">
-            Free stays single-file. Premium unlocks batch convert, PDF Editor,
-            5-language translate, page-range merge, signatures, quality preview,
-            and media/bulk compress. Testing: allowlist{" "}
-            <code className="text-xs">PREMIUM_EMAILS</code> or mock Upgrade.
+            Free tools stay single-file without payment. Premium (batch convert,
+            PDF Editor, multi-language translate, page-range merge, signatures,
+            quality & media compress) requires Google Login and a server
+            entitlement. Paid checkout for India is coming soon via Razorpay or
+            Cashfree — we never claim a paid unlock without payment.
           </p>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <Button
@@ -84,12 +94,12 @@ export function PremiumUpgradeCard({
               <Sparkles className="h-4 w-4" />
               {user
                 ? busy
-                  ? "Unlocking…"
-                  : "Upgrade (mock)"
-                : "Login to Upgrade"}
+                  ? "Checking…"
+                  : "Premium — coming soon"
+                : "Login for Premium"}
             </Button>
             {note ? (
-              <span className="text-xs font-medium text-emerald-700">{note}</span>
+              <span className="text-xs font-medium text-[#64748B]">{note}</span>
             ) : null}
             {err ? (
               <span className="text-xs text-red-600" role="alert">

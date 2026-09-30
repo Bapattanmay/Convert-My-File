@@ -403,14 +403,28 @@ async function readSpreadsheetAsCsv(file: File): Promise<string> {
 
 async function csvToXlsxBlob(csv: string): Promise<Blob> {
   const XLSX = await import("xlsx");
+  // SheetJS parses quoted fields / commas — never naive per-line comma splits
+  const wbIn = XLSX.read(csv, { type: "string", FS: "," });
+  const first = wbIn.SheetNames[0];
+  const sheet = first ? wbIn.Sheets[first] : undefined;
   const wb = XLSX.utils.book_new();
-  const rows = csv.split(/\r?\n/).map((line) => line.split(","));
-  const ws = XLSX.utils.aoa_to_sheet(rows);
-  XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+  if (sheet) {
+    XLSX.utils.book_append_sheet(wb, sheet, "Sheet1");
+  } else {
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([[]]), "Sheet1");
+  }
   const out = XLSX.write(wb, { bookType: "xlsx", type: "array" });
   return new Blob([out], {
     type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   });
+}
+
+/** Build CSV text via SheetJS (quoted fields). */
+async function rowsToCsvBlob(rows: string[][]): Promise<Blob> {
+  const XLSX = await import("xlsx");
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  const csv = XLSX.utils.sheet_to_csv(ws);
+  return new Blob([csv], { type: "text/csv;charset=utf-8" });
 }
 
 async function extractTextish(file: File, from: FormatId): Promise<string> {
@@ -447,24 +461,6 @@ async function extractStructured(
   return { text };
 }
 
-function textToDocBlob(text: string, asDocx: boolean, html?: string): Blob {
-  const body =
-    html ??
-    `<pre>${text
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")}</pre>`;
-  const docHtml = html?.includes("<html")
-    ? html
-    : `<html><head><meta charset="utf-8"></head><body>${body}</body></html>`;
-  if (asDocx) {
-    return new Blob([docHtml], {
-      type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    });
-  }
-  return new Blob([docHtml], { type: "application/msword" });
-}
-
 export async function convertFile(
   file: File,
   from: FormatId,
@@ -493,34 +489,57 @@ export async function convertFile(
     );
   }
 
-  if (to === "txt" || to === "csv") {
-    const out =
-      to === "csv" && !text.includes("|") && !text.includes(",")
-        ? text
-            .split(/\r?\n/)
-            .filter(Boolean)
-            .map((l) => `"${l.replace(/"/g, '""')}"`)
-            .join("\n")
-        : text.includes("|") && to === "csv"
-          ? text
-              .split(/\r?\n/)
-              .filter(Boolean)
-              .map((l) =>
-                l
-                  .split("|")
-                  .map((c) => `"${c.trim().replace(/"/g, '""')}"`)
-                  .join(",")
-              )
-              .join("\n")
-          : text;
-    const blob = new Blob([out], {
-      type: to === "csv" ? "text/csv" : "text/plain;charset=utf-8",
-    });
+  if (to === "txt") {
+    const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
     return {
       blob,
       previewKind: "text",
-      previewText: out.slice(0, 6000),
-      filenameExt: to,
+      previewText: text.slice(0, 6000),
+      filenameExt: "txt",
+    };
+  }
+
+  if (to === "csv") {
+    const lines = text.split(/\r?\n/).filter((l) => l.length > 0);
+    const rows: string[][] = lines.map((line) => {
+      if (line.includes("|")) {
+        return line.split("|").map((c) => c.trim());
+      }
+      if (line.includes(",") || line.includes('"')) {
+        // Let SheetJS parse a single CSV line via a tiny workbook
+        return [line];
+      }
+      return [line];
+    });
+    // If lines already look like CSV, re-parse with SheetJS as a whole
+    const looksCsv =
+      from === "csv" ||
+      (text.includes(",") && lines.some((l) => /["']/.test(l) || l.includes(",")));
+    let blob: Blob;
+    let preview: string;
+    if (looksCsv && from === "csv") {
+      blob = new Blob([text], { type: "text/csv;charset=utf-8" });
+      // Normalize through SheetJS round-trip for quoted-field safety
+      const XLSX = await import("xlsx");
+      const wb = XLSX.read(text, { type: "string", FS: "," });
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      preview = sheet ? XLSX.utils.sheet_to_csv(sheet) : text;
+      blob = new Blob([preview], { type: "text/csv;charset=utf-8" });
+    } else if (looksCsv) {
+      const XLSX = await import("xlsx");
+      const wb = XLSX.read(text, { type: "string", FS: "," });
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      preview = sheet ? XLSX.utils.sheet_to_csv(sheet) : text;
+      blob = new Blob([preview], { type: "text/csv;charset=utf-8" });
+    } else {
+      blob = await rowsToCsvBlob(rows);
+      preview = await blob.text();
+    }
+    return {
+      blob,
+      previewKind: "text",
+      previewText: preview.slice(0, 6000),
+      filenameExt: "csv",
     };
   }
 
@@ -535,13 +554,16 @@ export async function convertFile(
   }
 
   if (to === "xlsx") {
-    const csv =
-      from === "csv" || text.includes(",")
-        ? text
-        : text
-            .split(/\r?\n/)
-            .map((l) => `"${l.replace(/"/g, '""')}"`)
-            .join("\n");
+    let csv = text;
+    if (from !== "csv" && !text.includes(",")) {
+      const XLSX = await import("xlsx");
+      const rows = text
+        .split(/\r?\n/)
+        .filter((l) => l.length > 0)
+        .map((l) => [l]);
+      const ws = XLSX.utils.aoa_to_sheet(rows);
+      csv = XLSX.utils.sheet_to_csv(ws);
+    }
     const blob = await csvToXlsxBlob(csv);
     return {
       blob,
@@ -551,34 +573,23 @@ export async function convertFile(
     };
   }
 
+  // Real OOXML only — never HTML masquerading as DOCX/DOC
   if (to === "doc" || to === "docx") {
-    if (to === "docx" && structured.blocks?.length) {
-      const blob = await blocksToDocxBlob(structured.blocks);
-      return {
-        blob,
-        previewKind: "text",
-        previewText: text.slice(0, 6000),
-        filenameExt: "docx",
-      };
-    }
-    // Prefer real OOXML when targeting docx even without structured blocks
-    if (to === "docx") {
-      const blob = await blocksToDocxBlob([
-        { type: "paragraph", text },
-      ]);
-      return {
-        blob,
-        previewKind: "text",
-        previewText: text.slice(0, 6000),
-        filenameExt: "docx",
-      };
-    }
-    const blob = textToDocBlob(text, false, structured.html);
+    const blocks: DocBlock[] =
+      structured.blocks?.length
+        ? structured.blocks
+        : text
+            .split(/\r?\n/)
+            .map((line) => ({ type: "paragraph" as const, text: line }));
+    const blob = await blocksToDocxBlob(
+      blocks.length ? blocks : [{ type: "paragraph", text }]
+    );
     return {
       blob,
       previewKind: "text",
       previewText: text.slice(0, 6000),
-      filenameExt: to,
+      // Always emit real OOXML; .doc requests still get a valid .docx package
+      filenameExt: "docx",
     };
   }
 
