@@ -7,8 +7,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
+const TOPICS = [
+  "General question",
+  "Privacy / DPDP rights (access, correction, erasure)",
+  "Withdraw consent / delete my analytics data",
+  "Wipe timer / ephemeral files",
+  "Premium access",
+] as const;
+
 export default function ContactPage() {
   const [sent, setSent] = useState(false);
+  const [topic, setTopic] = useState<(typeof TOPICS)[number]>(TOPICS[0]);
 
   return (
     <div className="mx-auto max-w-3xl px-5 py-16 sm:px-8">
@@ -19,22 +28,74 @@ export default function ContactPage() {
         Contact
       </h1>
       <p className="mt-4 max-w-xl text-base leading-relaxed text-[#64748B]">
-        Reach the Convert My File desk for privacy questions, wipe-timer
-        clarification, or Premium identity onboarding. We never ask you to
-        re-upload wiped files.
+        Reach Convert My File for product questions, wipe-timer clarification,
+        Premium access, or privacy / DPDP rights requests (access, correction,
+        erasure, withdraw consent). We never ask you to re-upload wiped files.
       </p>
+
+      <div className="mt-6 rounded-2xl border border-[#E8E2D6] bg-[#FBF9F5] px-4 py-3 text-sm text-[#475569]">
+        <p className="font-semibold text-[#0F172A]">
+          Data Fiduciary / grievance contact
+        </p>
+        <p className="mt-1">
+          Email{" "}
+          <a
+            className="font-semibold text-[#0F172A] underline"
+            href="mailto:privacy@premiumutility.app?subject=Convert%20My%20File%20privacy%20request"
+          >
+            privacy@premiumutility.app
+          </a>
+          . For rights requests, use the Google email you signed in with. See
+          the{" "}
+          <Link href="/privacy" className="font-semibold text-[#0F172A] underline">
+            Privacy Policy
+          </Link>
+          .
+        </p>
+      </div>
 
       <form
         className="mt-10 space-y-5 rounded-[28px] border border-[#E8E2D6] bg-white p-6 sm:p-8"
         onSubmit={(e) => {
           e.preventDefault();
+          const form = e.currentTarget;
+          const fd = new FormData(form);
+          const name = String(fd.get("name") || "");
+          const email = String(fd.get("email") || "");
+          const message = String(fd.get("message") || "");
+          const subject = encodeURIComponent(
+            `[Convert My File] ${topic} — ${name}`
+          );
+          const body = encodeURIComponent(
+            `Topic: ${topic}\nName: ${name}\nEmail: ${email}\n\n${message}`
+          );
           setSent(true);
+          window.location.href = `mailto:privacy@premiumutility.app?subject=${subject}&body=${body}`;
         }}
       >
+        <div>
+          <Label htmlFor="topic">Topic</Label>
+          <select
+            id="topic"
+            name="topic"
+            value={topic}
+            onChange={(e) =>
+              setTopic(e.target.value as (typeof TOPICS)[number])
+            }
+            className="mt-2 flex h-11 w-full rounded-2xl border border-[#E8E2D6] bg-white px-3 text-sm text-[#0F172A]"
+          >
+            {TOPICS.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </select>
+        </div>
         <div>
           <Label htmlFor="name">Name</Label>
           <Input
             id="name"
+            name="name"
             required
             className="mt-2 h-11 rounded-2xl"
             placeholder="Your name"
@@ -44,6 +105,7 @@ export default function ContactPage() {
           <Label htmlFor="email">Email</Label>
           <Input
             id="email"
+            name="email"
             type="email"
             required
             className="mt-2 h-11 rounded-2xl"
@@ -54,33 +116,41 @@ export default function ContactPage() {
           <Label htmlFor="message">Message</Label>
           <Textarea
             id="message"
+            name="message"
             required
             className="mt-2 min-h-32 rounded-2xl"
-            placeholder="How can we help?"
+            placeholder="How can we help? For erasure, mention the Google email used at login."
           />
         </div>
         {sent ? (
           <p className="text-sm font-medium text-emerald-700" role="status">
-            Message queued locally. In this demo build nothing is transmitted.
+            Opening your email client to privacy@premiumutility.app…
           </p>
         ) : null}
         <Button
           type="submit"
           className="rounded-full bg-[#0F172A] px-6 text-white hover:bg-[#1E293B]"
         >
-          Send message
+          Email privacy desk
         </Button>
       </form>
 
       <p className="mt-6 text-sm text-[#64748B]">
-        Or email{" "}
+        Direct:{" "}
         <a
           className="font-semibold text-[#0F172A] underline"
           href="mailto:privacy@premiumutility.app"
         >
           privacy@premiumutility.app
         </a>
-        .
+        {" · "}
+        <Link href="/privacy" className="font-semibold text-[#0F172A] underline">
+          Privacy
+        </Link>
+        {" · "}
+        <Link href="/terms" className="font-semibold text-[#0F172A] underline">
+          Terms
+        </Link>
       </p>
 
       <Link

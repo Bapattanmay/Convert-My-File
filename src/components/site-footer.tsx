@@ -25,9 +25,9 @@ export function SiteFooter() {
               Convert My File
             </p>
             <p className="mt-4 text-sm leading-relaxed text-[#94A3B8]">
-              Military-grade ephemeral processing. Zero persistence. Files
-              exist only in your session and are securely wiped after download
-              or within three minutes.
+              Ephemeral file processing — file bytes stay in your session and
+              are wiped after download or within three minutes. Account and
+              usage analytics are described in our Privacy Policy (DPDP).
             </p>
             <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-[#334155]/80 bg-[#101828]/80 px-3 py-1.5 text-[11px] font-medium tracking-wide text-[#C5A880] backdrop-blur">
               <ShieldCheck className="h-3.5 w-3.5" />

@@ -70,9 +70,11 @@ export function LoginDialog() {
           </DialogTitle>
           <DialogDescription className="text-sm leading-relaxed text-[#64748B]">
             Choose your Google account to use Converter, Translator, Merger, and
-            Compressor. We receive your Google name, email, and profile picture
-            (when available), and record time spent, features used, and
-            approximate location. See{" "}
+            Compressor. As Data Fiduciary under India’s DPDP Act, we receive your
+            Google name, email, and profile picture (when available), and record
+            time spent, features used, and approximate location (browser geo
+            and/or IP). You must be 18+. Details and rights (access, correction,
+            erasure) are in{" "}
             <Link
               href="/privacy"
               className="font-semibold text-[#0F172A] underline"
@@ -99,8 +101,9 @@ export function LoginDialog() {
               className="mt-1 h-4 w-4 rounded border-[#CBD5E1]"
             />
             <span>
-              I agree to the Terms of Service and Privacy Policy, including
-              Google sign-in identity and usage analytics.
+              I am 18 or older and agree to the Terms of Service and Privacy
+              Policy, including Google sign-in identity, usage analytics, and
+              approximate location processing.
             </span>
           </label>
 
