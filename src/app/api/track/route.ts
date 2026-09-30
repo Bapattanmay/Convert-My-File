@@ -39,11 +39,12 @@ export async function POST(req: Request) {
       reverseGeocode(body.latitude, body.longitude),
       lookupIpLocation(ip),
     ]);
+    // Prefer reverse-geocoded city from browser coordinates (never leave
+    // lat/lng without a city when the geocoder returned one).
     locationPatch = {
       source: "browser_geolocation",
       latitude: body.latitude,
       longitude: body.longitude,
-      // Prefer reverse-geocoded city from browser coordinates.
       city: geo.city || ipLoc.city,
       region: geo.region || ipLoc.region,
       country: geo.country || ipLoc.country,

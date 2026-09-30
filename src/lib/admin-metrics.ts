@@ -115,7 +115,7 @@ export type VisitorLike = {
   };
 };
 
-/** Format admin location cell: city + lat/lng. */
+/** Format admin location cell: city + lat/lng (no source/IP noise). */
 export function formatAdminLocation(loc?: {
   city?: string;
   region?: string;
@@ -134,9 +134,8 @@ export function formatAdminLocation(loc?: {
     Number.isFinite(loc.longitude)
       ? `${loc.latitude.toFixed(4)}, ${loc.longitude.toFixed(4)}`
       : null;
-  const src = (loc?.source || "unknown").replace(/_/g, " ");
-  const meta = loc?.ip ? `${src} · ${loc.ip}` : src;
-  return { cityLine, coords, meta };
+  // Meta kept for CSV/debug callers but intentionally empty for UI cells.
+  return { cityLine, coords, meta: "" };
 }
 
 export function computeOverview(input: {

@@ -5,6 +5,7 @@ import {
   recordAdminAudit,
 } from "@/lib/usage-store";
 import { isActiveNow } from "@/lib/admin-metrics";
+import { ensureVisitorCity } from "@/lib/admin-location-enrich";
 
 export async function GET(
   _req: Request,
@@ -21,6 +22,9 @@ export async function GET(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
+  const location = await ensureVisitorCity(detail.visitor);
+  const visitor = { ...detail.visitor, location };
+
   await recordAdminAudit({
     adminEmail: admin.email,
     action: "view_visitor",
@@ -30,7 +34,7 @@ export async function GET(
   const active = detail.sessions.some((s) => isActiveNow(s.lastHeartbeatAt));
 
   return NextResponse.json({
-    visitor: detail.visitor,
+    visitor,
     sessions: detail.sessions,
     events: detail.events.slice(0, 200),
     audit: detail.audit.slice(0, 50),

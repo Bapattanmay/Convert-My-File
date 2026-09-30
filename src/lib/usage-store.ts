@@ -311,6 +311,30 @@ export async function getVisitorDetail(id: string) {
   return { visitor, sessions, events, audit };
 }
 
+/** Patch visitor (+ open session) location fields and persist. */
+export async function patchVisitorLocation(
+  visitorId: string,
+  patch: Partial<LocationInfo>
+): Promise<Visitor | null> {
+  return withStore((store) => {
+    const visitor = store.visitors.find((v) => v.id === visitorId);
+    if (!visitor) return null;
+    visitor.location = {
+      ...visitor.location,
+      ...patch,
+      ip: truncateIp(patch.ip ?? visitor.location.ip),
+    };
+    const open = store.sessions.find(
+      (s) =>
+        s.visitorId === visitorId && isSessionOpen(s.lastHeartbeatAt, s.endedAt)
+    );
+    if (open) {
+      open.location = { ...open.location, ...visitor.location };
+    }
+    return visitor;
+  });
+}
+
 export async function recordAdminAudit(input: {
   adminEmail: string;
   action: string;

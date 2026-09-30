@@ -117,19 +117,23 @@ function formatCoords(loc: LocBits) {
   return `${loc.latitude.toFixed(4)}, ${loc.longitude.toFixed(4)}`;
 }
 
-function placeMeta(loc: LocBits) {
-  const src = (loc.source || "unknown").replace(/_/g, " ");
-  const bits = [src];
-  if (loc.ip) bits.push(loc.ip);
-  return bits.join(" · ");
-}
-
 function cityLabel(loc: LocBits) {
   return (
     loc.city ||
     [loc.region, loc.country].filter(Boolean).join(", ") ||
     "—"
   );
+}
+
+function detailCityLine(loc: LocBits) {
+  const city = cityLabel(loc);
+  if (city === "—") return "City unknown";
+  const rest = [loc.region, loc.country].filter(
+    (x) => x && x !== loc.city && x !== city
+  );
+  // Avoid duplicating city when cityLabel already fell back to region/country.
+  if (!loc.city) return city;
+  return [city, ...rest].join(", ");
 }
 
 export function AdminDashboard({ admin }: { admin: AdminInfo }) {
@@ -603,9 +607,6 @@ export function AdminDashboard({ admin }: { admin: AdminInfo }) {
                           <div className="mt-0.5 font-[family-name:var(--font-admin-mono)] text-[11px] text-[#475569]">
                             {formatCoords(v.location) || "coords unavailable"}
                           </div>
-                          <div className="text-[11px] text-[#94A3B8]">
-                            {placeMeta(v.location)}
-                          </div>
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex flex-wrap gap-1">
@@ -689,21 +690,12 @@ export function AdminDashboard({ admin }: { admin: AdminInfo }) {
                     Location
                   </p>
                   <div className="mt-2 rounded-xl bg-[#F7F4EE] px-3 py-2 text-xs text-[#0F172A]">
-                    <p className="font-medium">
-                      {detail.visitor.location.city || "City unknown"}
-                      {detail.visitor.location.region
-                        ? `, ${detail.visitor.location.region}`
-                        : ""}
-                      {detail.visitor.location.country
-                        ? `, ${detail.visitor.location.country}`
-                        : ""}
+                    <p className="font-medium" data-testid="admin-location-city">
+                      {detailCityLine(detail.visitor.location)}
                     </p>
                     <p className="mt-1 font-[family-name:var(--font-admin-mono)] text-[#475569]">
                       {formatCoords(detail.visitor.location) ||
                         "Latitude / longitude unavailable"}
-                    </p>
-                    <p className="mt-1 text-[11px] text-[#94A3B8]">
-                      {placeMeta(detail.visitor.location)}
                     </p>
                   </div>
                 </div>

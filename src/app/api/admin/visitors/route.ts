@@ -9,6 +9,7 @@ import {
   isActiveNow,
   type RangeKey,
 } from "@/lib/admin-metrics";
+import { ensureVisitorCities } from "@/lib/admin-location-enrich";
 
 export async function GET(req: Request) {
   const admin = await requireAdmin();
@@ -32,6 +33,8 @@ export async function GET(req: Request) {
     range: ["24h", "7d", "30d"].includes(range) ? range : "7d",
   });
 
+  const cityPatches = await ensureVisitorCities(rows, { limit: 12 });
+
   const enriched = rows.map((v) => {
     const open = store.sessions.find(
       (s) => s.visitorId === v.id && isActiveNow(s.lastHeartbeatAt)
@@ -45,7 +48,7 @@ export async function GET(req: Request) {
       lastSeenAt: v.lastSeenAt,
       totalTimeSeconds: v.totalTimeSeconds,
       featuresUsed: v.featuresUsed,
-      location: v.location || { source: "unknown" },
+      location: cityPatches.get(v.id) || v.location || { source: "unknown" },
       active: Boolean(open),
       sessionCount: store.sessions.filter((s) => s.visitorId === v.id).length,
     };
