@@ -165,6 +165,14 @@ async function main() {
   };
 
   try {
+    // Warm Premium desk once (live cold-start / session race).
+    try {
+      await openPremium(page, /Batch convert/i);
+    } catch (e) {
+      console.log("warm-up retry:", String(e.message || e).slice(0, 120));
+      await openPremium(page, /Batch convert/i);
+    }
+
     // 1) Batch convert → ZIP
     try {
       await openPremium(page, /Batch convert/i);
