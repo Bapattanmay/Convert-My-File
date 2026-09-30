@@ -882,8 +882,10 @@ function PageMergePanel() {
       // Count pages in output for preview confirmation
       try {
         const { PDFDocument } = await import("pdf-lib");
-        const doc = await PDFDocument.load(await blob.arrayBuffer());
-        setResultPages(doc.getPageCount());
+        const ab = await blob.arrayBuffer();
+        const doc = await PDFDocument.load(ab, { ignoreEncryption: true });
+        const count = doc.getPageCount();
+        setResultPages(count > 0 ? count : totalSelected);
       } catch {
         setResultPages(totalSelected);
       }

@@ -124,7 +124,8 @@ export async function mergeWithPageRanges(
     throw new Error("Merge produced no pages.");
   }
   const bytes = await merged.save();
-  return new Blob([bytes.buffer as ArrayBuffer], { type: "application/pdf" });
+  // Pass the Uint8Array view (not bytes.buffer) — underlying ArrayBuffer may be larger.
+  return new Blob([bytes], { type: "application/pdf" });
 }
 
 /** Merge then resize to an exact target byte size. */
@@ -227,5 +228,5 @@ export async function addDigitalSignature(
   });
 
   const out = await doc.save();
-  return new Blob([out.buffer as ArrayBuffer], { type: "application/pdf" });
+  return new Blob([out], { type: "application/pdf" });
 }
