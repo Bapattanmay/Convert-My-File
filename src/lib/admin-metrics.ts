@@ -110,8 +110,34 @@ export type VisitorLike = {
     country?: string;
     source?: string;
     ip?: string;
+    latitude?: number;
+    longitude?: number;
   };
 };
+
+/** Format admin location cell: city + lat/lng. */
+export function formatAdminLocation(loc?: {
+  city?: string;
+  region?: string;
+  country?: string;
+  latitude?: number;
+  longitude?: number;
+  source?: string;
+  ip?: string;
+}): { cityLine: string; coords: string | null; meta: string } {
+  const cityLine =
+    [loc?.city, loc?.region, loc?.country].filter(Boolean).join(", ") || "—";
+  const coords =
+    typeof loc?.latitude === "number" &&
+    typeof loc?.longitude === "number" &&
+    Number.isFinite(loc.latitude) &&
+    Number.isFinite(loc.longitude)
+      ? `${loc.latitude.toFixed(4)}, ${loc.longitude.toFixed(4)}`
+      : null;
+  const src = (loc?.source || "unknown").replace(/_/g, " ");
+  const meta = loc?.ip ? `${src} · ${loc.ip}` : src;
+  return { cityLine, coords, meta };
+}
 
 export function computeOverview(input: {
   range: RangeKey;

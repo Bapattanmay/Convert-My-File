@@ -53,10 +53,22 @@ type OverviewPayload = {
       country?: string;
       source?: string;
       ip?: string;
+      latitude?: number;
+      longitude?: number;
     };
   }>;
   storageNote: string;
   admin: AdminInfo;
+};
+
+type LocBits = {
+  city?: string;
+  region?: string;
+  country?: string;
+  source?: string;
+  ip?: string;
+  latitude?: number;
+  longitude?: number;
 };
 
 type VisitorRow = {
@@ -68,13 +80,7 @@ type VisitorRow = {
   lastSeenAt: string;
   totalTimeSeconds: number;
   featuresUsed: string[];
-  location: {
-    city?: string;
-    region?: string;
-    country?: string;
-    source?: string;
-    ip?: string;
-  };
+  location: LocBits;
   active: boolean;
   sessionCount: number;
 };
@@ -99,9 +105,31 @@ type VisitorDetail = {
   active: boolean;
 };
 
-function place(loc: VisitorRow["location"]) {
-  const p = [loc.city, loc.region, loc.country].filter(Boolean);
-  return p.length ? p.join(", ") : "—";
+function formatCoords(loc: LocBits) {
+  if (
+    typeof loc.latitude !== "number" ||
+    typeof loc.longitude !== "number" ||
+    !Number.isFinite(loc.latitude) ||
+    !Number.isFinite(loc.longitude)
+  ) {
+    return null;
+  }
+  return `${loc.latitude.toFixed(4)}, ${loc.longitude.toFixed(4)}`;
+}
+
+function placeMeta(loc: LocBits) {
+  const src = (loc.source || "unknown").replace(/_/g, " ");
+  const bits = [src];
+  if (loc.ip) bits.push(loc.ip);
+  return bits.join(" · ");
+}
+
+function cityLabel(loc: LocBits) {
+  return (
+    loc.city ||
+    [loc.region, loc.country].filter(Boolean).join(", ") ||
+    "—"
+  );
 }
 
 export function AdminDashboard({ admin }: { admin: AdminInfo }) {
@@ -565,14 +593,18 @@ export function AdminDashboard({ admin }: { admin: AdminInfo }) {
                             </div>
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-[#475569]">
+                        <td className="px-4 py-3 text-[#475569]" data-testid="admin-location-cell">
                           <div className="flex items-center gap-1">
-                            <MapPin className="h-3 w-3 text-[#C5A880]" />
-                            {place(v.location)}
+                            <MapPin className="h-3 w-3 shrink-0 text-[#C5A880]" />
+                            <span className="font-medium text-[#0F172A]">
+                              {cityLabel(v.location)}
+                            </span>
+                          </div>
+                          <div className="mt-0.5 font-[family-name:var(--font-admin-mono)] text-[11px] text-[#475569]">
+                            {formatCoords(v.location) || "coords unavailable"}
                           </div>
                           <div className="text-[11px] text-[#94A3B8]">
-                            {(v.location.source || "").replace(/_/g, " ")}
-                            {v.location.ip ? ` · ${v.location.ip}` : ""}
+                            {placeMeta(v.location)}
                           </div>
                         </td>
                         <td className="px-4 py-3">
@@ -648,8 +680,30 @@ export function AdminDashboard({ admin }: { admin: AdminInfo }) {
                       {detail.visitor.email}
                     </p>
                     <p className="mt-1 text-[11px] text-[#94A3B8]">
-                      {detail.active ? "Active now" : "Idle"} ·{" "}
-                      {place(detail.visitor.location)}
+                      {detail.active ? "Active now" : "Idle"}
+                    </p>
+                  </div>
+                </div>
+                <div data-testid="admin-location-detail">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#94A3B8]">
+                    Location
+                  </p>
+                  <div className="mt-2 rounded-xl bg-[#F7F4EE] px-3 py-2 text-xs text-[#0F172A]">
+                    <p className="font-medium">
+                      {detail.visitor.location.city || "City unknown"}
+                      {detail.visitor.location.region
+                        ? `, ${detail.visitor.location.region}`
+                        : ""}
+                      {detail.visitor.location.country
+                        ? `, ${detail.visitor.location.country}`
+                        : ""}
+                    </p>
+                    <p className="mt-1 font-[family-name:var(--font-admin-mono)] text-[#475569]">
+                      {formatCoords(detail.visitor.location) ||
+                        "Latitude / longitude unavailable"}
+                    </p>
+                    <p className="mt-1 text-[11px] text-[#94A3B8]">
+                      {placeMeta(detail.visitor.location)}
                     </p>
                   </div>
                 </div>

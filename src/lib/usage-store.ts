@@ -255,12 +255,15 @@ export async function heartbeat(input: {
         ip: truncateIp(input.location.ip ?? session.location.ip),
       };
       session.location = loc;
+      // Keep lat/lng on the visitor record (admin table + detail).
       visitor.location = {
         source: loc.source,
         city: loc.city,
         region: loc.region,
         country: loc.country,
         ip: loc.ip,
+        latitude: loc.latitude,
+        longitude: loc.longitude,
       };
     }
 

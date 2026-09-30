@@ -1198,7 +1198,16 @@ function SignPanel() {
   const [reason, setReason] = useState("Approved");
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<Blob | null>(null);
+  const [previewPages, setPreviewPages] = useState<
+    { pageNumber: number; dataUrl: string }[]
+  >([]);
+  const [pageCount, setPageCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
+
+  const clearPreview = () => {
+    setPreviewPages([]);
+    setPageCount(0);
+  };
 
   const run = async () => {
     if (!file) {
@@ -1207,6 +1216,7 @@ function SignPanel() {
     }
     setBusy(true);
     setError(null);
+    clearPreview();
     try {
       const blob = await addDigitalSignature(file, {
         signerName: name || "Signer",
@@ -1214,8 +1224,21 @@ function SignPanel() {
       });
       setResult(blob);
       startWipeTimer();
+      try {
+        const { renderPdfPreviewPages } = await import("@/lib/pdf-preview");
+        const rendered = await renderPdfPreviewPages(await blob.arrayBuffer(), {
+          maxPages: 3,
+          scale: 1.2,
+        });
+        setPreviewPages(rendered.pages);
+        setPageCount(rendered.pageCount);
+      } catch {
+        setPageCount(0);
+        setPreviewPages([]);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Sign failed");
+      setResult(null);
     } finally {
       setBusy(false);
     }
@@ -1224,7 +1247,7 @@ function SignPanel() {
   return (
     <PanelShell
       title="Digital signature"
-      desc="Adds plain signer lines under the last content — no stamp box."
+      desc="Adds plain signer lines under the last content on the same page — preview before download."
     >
       <Button
         type="button"
@@ -1243,6 +1266,7 @@ function SignPanel() {
           const raw = e.target.files?.[0] || null;
           e.target.value = "";
           setResult(null);
+          clearPreview();
           if (!raw) {
             setFile(null);
             return;
@@ -1306,6 +1330,46 @@ function SignPanel() {
           </Button>
         ) : null}
       </div>
+
+      {result ? (
+        <div
+          className="mt-4 rounded-2xl border border-[#E8E2D6] bg-white p-4"
+          data-testid="sign-preview"
+        >
+          <p className="text-xs font-semibold tracking-[0.14em] text-[#C5A880]">
+            SIGNED PREVIEW
+          </p>
+          <p className="mt-1 text-xs text-[#64748B]" data-testid="sign-page-count">
+            {pageCount
+              ? `${pageCount} page${pageCount === 1 ? "" : "s"} · confirm signature under the last content lines before download`
+              : "Preview ready — confirm placement before download"}
+          </p>
+          {previewPages.length ? (
+            <div className="mt-3 space-y-3">
+              {previewPages.map((p) => (
+                <figure key={p.pageNumber} className="overflow-hidden rounded-xl bg-[#F7F4EE] ring-1 ring-[#E8E2D6]">
+                  <figcaption className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#94A3B8]">
+                    Page {p.pageNumber}
+                    {pageCount === 1 ? " (signature on this page)" : ""}
+                  </figcaption>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={p.dataUrl}
+                    alt={`Signed page ${p.pageNumber}`}
+                    className="mx-auto max-h-[480px] w-full object-contain object-top"
+                    data-testid={`sign-preview-page-${p.pageNumber}`}
+                  />
+                </figure>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-2 text-xs text-[#94A3B8]">
+              Rendering preview…
+            </p>
+          )}
+        </div>
+      ) : null}
+
       {error ? (
         <p className="mt-2 text-sm text-red-600" role="alert">
           {error}

@@ -237,6 +237,23 @@ async function main() {
     await page
       .locator('[data-testid="sign-download"]')
       .waitFor({ state: "visible", timeout: 45000 });
+    // Preview must appear before download confirmation
+    await page
+      .locator('[data-testid="sign-preview"]')
+      .waitFor({ state: "visible", timeout: 30000 });
+    await page
+      .locator('[data-testid="sign-preview-page-1"]')
+      .waitFor({ state: "visible", timeout: 30000 });
+    const previewText = await page.locator('[data-testid="sign-preview"]').innerText();
+    assert(/SIGNED PREVIEW/i.test(previewText), "missing SIGNED PREVIEW");
+    const pageCountLabel = await page
+      .locator('[data-testid="sign-page-count"]')
+      .innerText();
+    assert(/1 page/i.test(pageCountLabel), `page count label: ${pageCountLabel}`);
+    await page.screenshot({
+      path: path.join(OUT, `${LABEL}preview.png`),
+      fullPage: true,
+    });
 
     const [dl] = await Promise.all([
       page.waitForEvent("download", { timeout: 60000 }),
@@ -250,12 +267,12 @@ async function main() {
     assert(pageCount === 1, `expected 1 page, got ${pageCount}`);
     results.req0_same_page = {
       pass: true,
-      detail: `output pages=${pageCount} (salary body + signature on same page)`,
+      detail: `output pages=${pageCount}; SIGNED PREVIEW shown before download (${pageCountLabel.trim()})`,
     };
-    console.log("PASS  req0 same page —", results.req0_same_page.detail);
+    console.log("PASS  req0 same page + preview —", results.req0_same_page.detail);
     fs.writeFileSync(
       path.join(OUT, `${LABEL}page-count.txt`),
-      `pages=${pageCount}\n`
+      `pages=${pageCount}\npreview=1\n`
     );
 
     const last = signed.getPages()[0];

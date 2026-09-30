@@ -40,6 +40,8 @@ export async function GET(req: Request) {
     "city",
     "region",
     "country",
+    "latitude",
+    "longitude",
     "ip",
     "locationSource",
   ];
@@ -59,6 +61,12 @@ export async function GET(req: Request) {
         escape(v.location?.city || ""),
         escape(v.location?.region || ""),
         escape(v.location?.country || ""),
+        typeof v.location?.latitude === "number"
+          ? String(v.location.latitude)
+          : "",
+        typeof v.location?.longitude === "number"
+          ? String(v.location.longitude)
+          : "",
         escape(v.location?.ip || ""),
         escape(v.location?.source || ""),
       ].join(",")

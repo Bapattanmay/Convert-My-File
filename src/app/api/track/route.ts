@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { readUserSession } from "@/lib/session";
 import { touchSession } from "@/lib/usage-store";
-import { clientIp, lookupIpLocation } from "@/lib/geo";
+import { clientIp, lookupIpLocation, reverseGeocode } from "@/lib/geo";
 import { truncateIp } from "@/lib/admin-metrics";
 
 export async function POST(req: Request) {
@@ -35,14 +35,18 @@ export async function POST(req: Request) {
     typeof body?.longitude === "number"
   ) {
     const ip = clientIp(req.headers);
-    const ipLoc = await lookupIpLocation(ip);
+    const [geo, ipLoc] = await Promise.all([
+      reverseGeocode(body.latitude, body.longitude),
+      lookupIpLocation(ip),
+    ]);
     locationPatch = {
       source: "browser_geolocation",
       latitude: body.latitude,
       longitude: body.longitude,
-      city: ipLoc.city,
-      region: ipLoc.region,
-      country: ipLoc.country,
+      // Prefer reverse-geocoded city from browser coordinates.
+      city: geo.city || ipLoc.city,
+      region: geo.region || ipLoc.region,
+      country: geo.country || ipLoc.country,
       ip: truncateIp(ipLoc.ip || ip),
     };
   } else if (body?.syncIpLocation) {
@@ -53,6 +57,8 @@ export async function POST(req: Request) {
       city: ipLoc.city,
       region: ipLoc.region,
       country: ipLoc.country,
+      latitude: ipLoc.latitude,
+      longitude: ipLoc.longitude,
       ip: truncateIp(ipLoc.ip || ip),
     };
   }
