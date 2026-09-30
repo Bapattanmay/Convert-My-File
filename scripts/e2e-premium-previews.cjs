@@ -50,7 +50,7 @@ async function unlock(page) {
     r.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({ ok: true }),
+      body: JSON.stringify({ ok: true, featuresUsed: fakeUser.featuresUsed }),
     })
   );
   await page.route("**/api/premium", (r) =>
@@ -103,28 +103,37 @@ async function makePng(filePath) {
 }
 
 async function openPremium(page, titleRe) {
-  await page.goto(BASE + "/#tools", {
-    waitUntil: "domcontentloaded",
-    timeout: 120000,
-  });
-  await page.evaluate((email) => {
-    try {
-      localStorage.setItem(
-        "cmf_premium_emails",
-        JSON.stringify([email.toLowerCase()])
-      );
-    } catch (_) {}
-  }, FAKE_EMAIL);
-  await page.locator("#tools").scrollIntoViewIfNeeded();
-  await page
-    .getByText("Google login required")
-    .waitFor({ state: "hidden", timeout: 25000 })
-    .catch(() => {});
-  await page.getByRole("tab", { name: "Premium", exact: true }).click();
-  await page
-    .getByText(/Premium active/i)
-    .first()
-    .waitFor({ timeout: 45000 });
+  const unlockDesk = async () => {
+    await page.goto(BASE + "/#tools", {
+      waitUntil: "domcontentloaded",
+      timeout: 120000,
+    });
+    await page.evaluate((email) => {
+      try {
+        localStorage.setItem(
+          "cmf_premium_emails",
+          JSON.stringify([email.toLowerCase()])
+        );
+      } catch (_) {}
+    }, FAKE_EMAIL);
+    await page.locator("#tools").scrollIntoViewIfNeeded();
+    // Gate overlay must clear (auth mocks) before Premium desk is usable.
+    await page
+      .getByText("Google login required")
+      .waitFor({ state: "hidden", timeout: 60000 });
+    await page.getByRole("tab", { name: "Premium", exact: true }).click();
+    await page
+      .getByText(/Premium active/i)
+      .first()
+      .waitFor({ state: "visible", timeout: 60000 });
+  };
+  try {
+    await unlockDesk();
+  } catch {
+    // Cold start / session race — one hard refresh usually settles auth mocks.
+    await page.reload({ waitUntil: "domcontentloaded", timeout: 120000 });
+    await unlockDesk();
+  }
   await page
     .locator("button")
     .filter({ hasText: titleRe })
@@ -175,7 +184,7 @@ async function main() {
 
     // 2) PDF editor
     try {
-      await openPremium(page, /PDF editor/i);
+      await openPremium(page, /^PDF Editor$/i);
       await page.locator('[data-testid="premium-pdf-open"]').setInputFiles(pdfA);
       await page.waitForTimeout(1500);
       await page.getByRole("button", { name: /Export edited PDF/i }).click();

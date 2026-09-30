@@ -69,7 +69,7 @@ export function PremiumUpgradeCard({
             {feature ? `${feature} is Premium` : "Unlock Premium"}
           </p>
           <p className="mt-1 text-sm leading-relaxed text-[#64748B]">
-            Free stays single-file. Premium unlocks batch convert, PDF editor,
+            Free stays single-file. Premium unlocks batch convert, PDF Editor,
             5-language translate, page-range merge, signatures, quality preview,
             and media/bulk compress. Testing: allowlist{" "}
             <code className="text-xs">PREMIUM_EMAILS</code> or mock Upgrade.

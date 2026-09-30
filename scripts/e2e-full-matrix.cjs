@@ -444,7 +444,7 @@ async function main() {
 
   // ═══════ PREMIUM 2: PDF editor ═══════
   try {
-    await openPremiumPanel(page, "PDF editor");
+    await openPremiumPanel(page, "PDF Editor");
     // Prefer testid when deployed; fall back to first PDF accept input
     const pdfOpen = page.locator('[data-testid="premium-pdf-open"]');
     if (await pdfOpen.count()) {

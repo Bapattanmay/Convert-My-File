@@ -51,7 +51,7 @@ Client extracts text from Word/PDF/Excel, then `POST /api/translate` calls **MyM
 Free tools stay **one file / one language**. The **Premium** tab unlocks:
 
 - Batch convert → ZIP (up to 50 files)
-- PDF → editable DOC → PDF editor round-trip
+- PDF Editor — edit your PDF and download
 - 5-language translation pack
 - Page-range merge picker, merge+compress, digital signature stamp
 - Image quality before/after, video/audio exact-size, bulk per-file targets

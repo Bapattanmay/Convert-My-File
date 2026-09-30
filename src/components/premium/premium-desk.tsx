@@ -84,8 +84,8 @@ const PANELS: { id: PanelId; title: string; blurb: string }[] = [
   },
   {
     id: "pdf-editor",
-    title: "PDF editor round-trip",
-    blurb: "PDF → editable DOC → back to PDF.",
+    title: "PDF Editor",
+    blurb: "Edit your PDF and download",
   },
   {
     id: "multi-lang",
@@ -149,7 +149,7 @@ export function PremiumDesk() {
             </h3>
             <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-300">
               Free tools stay single-file. Premium workflows live here: batch
-              ZIP convert, PDF editor, multi-language packs, page-range merge,
+              ZIP convert, PDF Editor, multi-language packs, page-range merge,
               signatures, quality previews, and media/bulk compress.
             </p>
           </div>
@@ -413,8 +413,8 @@ function PdfEditorPanel() {
 
   return (
     <PanelShell
-      title="PDF editor"
-      desc="Convert PDF to an editable DOC, revise text, export PDF again."
+      title="PDF Editor"
+      desc="Edit your PDF and download"
     >
       <div className="flex flex-wrap gap-2">
         <Button
