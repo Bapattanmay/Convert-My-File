@@ -21,14 +21,8 @@ export function SiteHeader() {
           <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-[#0F172A] to-[#1E293B] text-[#D4AF37] shadow-[0_10px_28px_rgba(15,23,42,0.22)] transition duration-300 group-hover:scale-[1.04] group-hover:shadow-[0_14px_32px_rgba(15,23,42,0.28)]">
             <Files className="h-5 w-5" strokeWidth={1.75} />
           </span>
-          <span className="flex flex-col leading-none">
-            <span className="font-[family-name:var(--font-display)] text-[15px] font-bold tracking-[0.04em] text-[#0F172A] sm:text-[17px]">
-              Convert My File
-            </span>
-            <span className="mt-1.5 flex items-center gap-1.5 text-[10px] font-semibold tracking-[0.16em] text-[#64748B]">
-              <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#D4AF37] shadow-[0_0_8px_rgba(212,175,55,0.7)]" />
-              SECURE PROTOCOL V2.4
-            </span>
+          <span className="font-[family-name:var(--font-display)] text-[15px] font-bold tracking-[0.04em] text-[#0F172A] sm:text-[17px]">
+            Convert My File
           </span>
         </Link>
 

@@ -63,9 +63,8 @@ export function SiteFooter() {
           </nav>
         </div>
 
-        <div className="mt-12 flex flex-col gap-2 border-t border-[#1E293B] pt-6 text-xs text-[#64748B] sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-12 border-t border-[#1E293B] pt-6 text-xs text-[#64748B]">
           <p>© {new Date().getFullYear()} Convert My File. All rights reserved.</p>
-          <p>● SECURE PROTOCOL V2.4</p>
         </div>
       </div>
     </footer>
