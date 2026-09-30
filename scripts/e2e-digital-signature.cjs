@@ -242,12 +242,12 @@ async function main() {
       .locator('[data-testid="sign-preview"]')
       .waitFor({ state: "visible", timeout: 30000 });
     await page
-      .locator('[data-testid="sign-preview-page-1"]')
+      .locator('[data-testid="sign-preview-page-image"]')
       .waitFor({ state: "visible", timeout: 30000 });
     const previewText = await page.locator('[data-testid="sign-preview"]').innerText();
     assert(/SIGNED PREVIEW/i.test(previewText), "missing SIGNED PREVIEW");
     const pageCountLabel = await page
-      .locator('[data-testid="sign-page-count"]')
+      .locator('[data-testid="sign-preview-meta"]')
       .innerText();
     assert(/1 page/i.test(pageCountLabel), `page count label: ${pageCountLabel}`);
     await page.screenshot({
