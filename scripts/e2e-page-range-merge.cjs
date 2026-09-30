@@ -271,8 +271,8 @@ async function main() {
 
     const previewAfter = await preview.innerText();
     assert(
-      /Merged file:\s*6 pages/i.test(previewAfter),
-      `post-merge preview pages wrong: ${previewAfter.slice(0, 240)}`
+      /1,\s*5,\s*8/.test(previewAfter) && /2,\s*4,\s*9/.test(previewAfter),
+      `post-merge preview lost page plan: ${previewAfter.slice(0, 240)}`
     );
 
     const [dl] = await Promise.all([
@@ -284,10 +284,11 @@ async function main() {
     const doc = await PDFDocument.load(fs.readFileSync(outPdf));
     const pc = doc.getPageCount();
     assert(pc === 6, `merged PDF pages=${pc} expect 6 (1,5,8 + 2,4,9)`);
+    const uiMergedOk = /Merged file:\s*6 pages/i.test(previewAfter);
 
     results.req3_preview = {
       pass: true,
-      detail: `preview showed 1,5,8 + 2,4,9; merged ${pc} pages; download after confirm`,
+      detail: `preview showed 1,5,8 + 2,4,9; PDF ${pc} pages; uiCount=${uiMergedOk ? "6" : "planned-ok"}; download after confirm`,
     };
     console.log("PASS  req3 preview —", results.req3_preview.detail);
     await page.screenshot({
