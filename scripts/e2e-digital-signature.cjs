@@ -1,6 +1,7 @@
 /**
- * Digital signature polish — 3 requirements:
- * 1) Near end of content (no huge blank gap to bottom)
+ * Digital signature polish:
+ * 0) Same page as last content (no blank page 2) for short multi-line docs
+ * 1) Near end of content (minimal blank gap)
  * 2) No overlap with existing content
  * 3) Plain body font/color; no bordered box / Digitally signed / OK badge
  *
@@ -143,24 +144,31 @@ function findSignedBaselines(content) {
   return ys.filter((y) => Number.isFinite(y));
 }
 
-async function makeShortPdf(filePath) {
+async function makeSalaryPdf(filePath) {
   const doc = await PDFDocument.create();
   const font = await doc.embedFont(StandardFonts.Helvetica);
   const page = doc.addPage([612, 792]);
-  // Body near top — signature must sit under this, not at page bottom
-  page.drawText("Agreement clause one for signature placement QA.", {
+  const color = rgb(0.06, 0.09, 0.16);
+  const lines = [
+    [720, "Salary Slip — March 2026"],
+    [700, "Employee: Tanmay Bapat"],
+    [680, "Department: Engineering"],
+    [660, "Basic: 50,000"],
+    [640, "HRA: 20,000"],
+    [620, "Special Allowance: 8,000"],
+    [600, "Net Pay: 62,000"],
+    [580, "Notes: Paid via bank transfer on the last working day."],
+  ];
+  for (const [y, text] of lines) {
+    page.drawText(text, { x: 50, y, size: 11, font, color });
+  }
+  // Footer-like line that must NOT push the signature onto a new page
+  page.drawText("Page 1 of 1", {
     x: 50,
-    y: 720,
-    size: 11,
+    y: 36,
+    size: 9,
     font,
-    color: rgb(0.06, 0.09, 0.16),
-  });
-  page.drawText("Agreement clause two closes the body content.", {
-    x: 50,
-    y: 700,
-    size: 11,
-    font,
-    color: rgb(0.06, 0.09, 0.16),
+    color,
   });
   fs.writeFileSync(filePath, Buffer.from(await doc.save()));
 }
@@ -199,12 +207,13 @@ async function openSign(page) {
 async function main() {
   fs.mkdirSync(OUT, { recursive: true });
   fs.mkdirSync(FIX, { recursive: true });
-  const pdfPath = path.join(FIX, "agreement.pdf");
-  await makeShortPdf(pdfPath);
+  const pdfPath = path.join(FIX, "salary.pdf");
+  await makeSalaryPdf(pdfPath);
 
   const results = {
     at: new Date().toISOString(),
     base: BASE,
+    req0_same_page: { pass: false, detail: "" },
     req1_near_content: { pass: false, detail: "" },
     req2_no_overlap: { pass: false, detail: "" },
     req3_plain_style: { pass: false, detail: "" },
@@ -222,8 +231,8 @@ async function main() {
       .last()
       .setInputFiles(pdfPath);
     await page.waitForTimeout(800);
-    await page.locator('[data-testid="sign-name"]').fill("Pat Tanmay");
-    await page.locator('[data-testid="sign-reason"]').fill("Approved for release");
+    await page.locator('[data-testid="sign-name"]').fill("Tanmay Bapat");
+    await page.locator('[data-testid="sign-reason"]').fill("Salary approved");
     await page.locator('[data-testid="sign-apply"]').click();
     await page
       .locator('[data-testid="sign-download"]')
@@ -233,34 +242,28 @@ async function main() {
       page.waitForEvent("download", { timeout: 60000 }),
       page.locator('[data-testid="sign-download"]').click(),
     ]);
-    const outPdf = path.join(OUT, `${LABEL}signed.pdf`);
+    const outPdf = path.join(OUT, `${LABEL}signed-salary.pdf`);
     await dl.saveAs(outPdf);
 
     const signed = await PDFDocument.load(fs.readFileSync(outPdf));
-    assert(signed.getPageCount() >= 1, "no pages");
-    // Short body → signature should stay on page 1 (near content), not forced to a new page
-    const last = signed.getPages()[signed.getPageCount() - 1];
+    const pageCount = signed.getPageCount();
+    assert(pageCount === 1, `expected 1 page, got ${pageCount}`);
+    results.req0_same_page = {
+      pass: true,
+      detail: `output pages=${pageCount} (salary body + signature on same page)`,
+    };
+    console.log("PASS  req0 same page —", results.req0_same_page.detail);
+    fs.writeFileSync(
+      path.join(OUT, `${LABEL}page-count.txt`),
+      `pages=${pageCount}\n`
+    );
+
+    const last = signed.getPages()[0];
     const { height } = last.getSize();
     const content = readContent(last);
     const ys = findSignedBaselines(content);
-    const contentBottomBeforeSign = 700; // from fixture body
+    const contentBottomBeforeSign = 580; // last salary body line in fixture
 
-    // Decode strings in stream for chrome checks
-    const hasDigitallySigned = /Digitally signed/i.test(content);
-    const hasOkBadge =
-      /\bOK\b/.test(content) && /0\.1\s+0\.45\s+0\.25/.test(content);
-    const hasRect = /\bre\b/.test(content) && /0\.12\s+0\.35\s+0\.55/.test(content);
-    // HelveticaOblique / blue-ish stamp colors should be gone
-    const hasItalic = /HelveticaOblique|Oblique/i.test(content);
-    const hasBlueStamp = /0\.05\s+0\.15\s+0\.3\s+rg|0\.12\s+0\.35\s+0\.55/.test(
-      content
-    );
-    const hasSignedLine =
-      /Signed:/.test(content) ||
-      content.includes("5369676e65643a") /* Signed: hex */ ||
-      /Pat|Tanmay|Approved/.test(content);
-
-    // Literal Tj strings may be hex-encoded — also search decoded ASCII
     const ascii = content.replace(/<([0-9A-Fa-f]+)>/g, (_, h) => {
       try {
         return Buffer.from(h, "hex").toString("latin1");
@@ -269,29 +272,39 @@ async function main() {
       }
     });
 
-    const sigYs = ys.filter((y) => y < contentBottomBeforeSign - 5);
+    const hasDigitallySigned = /Digitally signed/i.test(ascii);
+    const hasOkBadge =
+      /\bOK\b/.test(content) && /0\.1\s+0\.45\s+0\.25/.test(content);
+    const hasRect =
+      /\bre\b/.test(content) && /0\.12\s+0\.35\s+0\.55/.test(content);
+    const hasItalic = /HelveticaOblique|Oblique/i.test(content);
+    const hasBlueStamp = /0\.05\s+0\.15\s+0\.3\s+rg|0\.12\s+0\.35\s+0\.55/.test(
+      content
+    );
+
+    const sigYs = ys.filter(
+      (y) => y < contentBottomBeforeSign - 5 && y > 80
+    );
     const topSigY = sigYs.length ? Math.max(...sigYs) : null;
 
-    // Req 1: signature near content — within 80pt below body, not in bottom 25% of page
     const nearContent =
       topSigY != null &&
-      topSigY <= contentBottomBeforeSign - 10 &&
+      topSigY <= contentBottomBeforeSign - 8 &&
       topSigY >= contentBottomBeforeSign - 80 &&
-      topSigY > height * 0.25;
+      topSigY > height * 0.2;
     results.req1_near_content = {
       pass: !!nearContent,
       detail: nearContent
         ? `sigY=${topSigY.toFixed(1)} under contentY=${contentBottomBeforeSign} (pageH=${height})`
-        : `sigY=${topSigY} ys=${ys.join(",")} — expected under ~700, not page bottom`,
+        : `sigY=${topSigY} ys=${ys.join(",")} — expected under ~580 on page 1`,
     };
     console.log(
       (nearContent ? "PASS" : "FAIL") + "  req1 near content —",
       results.req1_near_content.detail
     );
 
-    // Req 2: no overlap — signature baselines strictly below content baseline
     const noOverlap =
-      topSigY != null && topSigY <= contentBottomBeforeSign - 12;
+      topSigY != null && topSigY <= contentBottomBeforeSign - 8;
     results.req2_no_overlap = {
       pass: !!noOverlap,
       detail: noOverlap
@@ -303,19 +316,18 @@ async function main() {
       results.req2_no_overlap.detail
     );
 
-    // Req 3: plain style
     const plain =
       !hasDigitallySigned &&
       !hasOkBadge &&
       !hasRect &&
       !hasItalic &&
       !hasBlueStamp &&
-      (/Signed:/.test(ascii) || /Signed:/.test(content));
+      /Signed:/.test(ascii);
     results.req3_plain_style = {
       pass: !!plain,
       detail: plain
         ? "plain Signed:/Reason lines; no box/OK/italic/blue stamp"
-        : `chrome flags digitallySigned=${hasDigitallySigned} ok=${hasOkBadge} rect=${hasRect} italic=${hasItalic} blue=${hasBlueStamp} asciiHasSigned=${/Signed:/.test(ascii)}`,
+        : `chrome flags digitallySigned=${hasDigitallySigned} ok=${hasOkBadge} rect=${hasRect} italic=${hasItalic} blue=${hasBlueStamp}`,
     };
     console.log(
       (plain ? "PASS" : "FAIL") + "  req3 plain style —",
@@ -326,14 +338,13 @@ async function main() {
       path: path.join(OUT, `${LABEL}ui.png`),
       fullPage: true,
     });
-
-    // Render proof via pdf page text dump
     fs.writeFileSync(
       path.join(OUT, `${LABEL}content-dump.txt`),
       ascii.slice(0, 2000)
     );
 
     results.status =
+      results.req0_same_page.pass &&
       results.req1_near_content.pass &&
       results.req2_no_overlap.pass &&
       results.req3_plain_style.pass
@@ -344,13 +355,12 @@ async function main() {
     await page
       .screenshot({ path: path.join(OUT, `${LABEL}FAIL.png`), fullPage: true })
       .catch(() => {});
-    if (!results.req1_near_content.pass) {
-      results.req1_near_content.detail = String(e.message || e);
-    } else if (!results.req2_no_overlap.pass) {
-      results.req2_no_overlap.detail = String(e.message || e);
-    } else {
-      results.req3_plain_style.detail = String(e.message || e);
-    }
+    const msg = String(e.message || e);
+    if (!results.req0_same_page.pass) results.req0_same_page.detail = msg;
+    else if (!results.req1_near_content.pass)
+      results.req1_near_content.detail = msg;
+    else if (!results.req2_no_overlap.pass) results.req2_no_overlap.detail = msg;
+    else results.req3_plain_style.detail = msg;
     results.status = "FAIL";
   } finally {
     await browser.close();
@@ -363,6 +373,7 @@ async function main() {
     `Digital signature polish — ${results.status}`,
     `base: ${BASE}`,
     `at: ${results.at}`,
+    `0. Same page: ${results.req0_same_page.pass ? "PASS" : "FAIL"} — ${results.req0_same_page.detail}`,
     `1. Near content: ${results.req1_near_content.pass ? "PASS" : "FAIL"} — ${results.req1_near_content.detail}`,
     `2. No overlap: ${results.req2_no_overlap.pass ? "PASS" : "FAIL"} — ${results.req2_no_overlap.detail}`,
     `3. Plain style: ${results.req3_plain_style.pass ? "PASS" : "FAIL"} — ${results.req3_plain_style.detail}`,

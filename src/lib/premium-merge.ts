@@ -194,25 +194,22 @@ function readPageContent(page: PDFPage): string {
   return out;
 }
 
-/**
- * Lowest text baseline Y on the page (PDF space: origin bottom-left).
- * Falls back to null when the stream has no text positioning.
- */
-export function findLowestTextBaselineY(
+/** Collect painted text baseline Y values (PDF space: origin bottom-left). */
+export function collectPaintedTextYs(
   page: PDFPage,
   pageHeight: number
-): number | null {
+): number[] {
   const content = readPageContent(page);
-  if (!content.trim()) return null;
+  if (!content.trim()) return [];
 
-  let minY = Infinity;
+  const ys: number[] = [];
   let curY = pageHeight;
   let leading = 14;
   let pendingY: number | null = null;
 
   // Only count Y when text is actually painted (Tj/TJ/'/").
   // pdf-lib emits a trailing T* after each drawText — that must not
-  // pull the "content bottom" below the real glyphs.
+  // count as a painted baseline by itself.
   const tokens = content.match(/[^\s]+/g) || [];
   const nums: number[] = [];
   for (const tok of tokens) {
@@ -244,19 +241,40 @@ export function findLowestTextBaselineY(
       continue;
     }
     if (tok === "Tj" || tok === "TJ" || tok === "'" || tok === '"') {
-      if (pendingY != null) minY = Math.min(minY, pendingY);
+      if (pendingY != null && Number.isFinite(pendingY)) ys.push(pendingY);
       nums.length = 0;
       continue;
     }
     if (/^[A-Za-z'"]/.test(tok)) nums.length = 0;
   }
-
-  return Number.isFinite(minY) ? minY : null;
+  return ys;
 }
 
 /**
- * Visible signature as plain body text under the last content line —
- * no bordered stamp, no italic/blue chrome, no OK badge.
+ * Lowest body-text baseline Y on the page.
+ * Ignores isolated footer-like lines far below the main content cluster
+ * (those used to force a blank signature page).
+ */
+export function findLowestTextBaselineY(
+  page: PDFPage,
+  pageHeight: number
+): number | null {
+  const ys = collectPaintedTextYs(page, pageHeight);
+  if (!ys.length) return null;
+
+  // Walk from top of page downward; stop before a large gap (footer).
+  const sorted = [...ys].sort((a, b) => b - a);
+  let clusterLow = sorted[0];
+  for (let i = 1; i < sorted.length; i++) {
+    if (clusterLow - sorted[i] > 120) break;
+    clusterLow = sorted[i];
+  }
+  return clusterLow;
+}
+
+/**
+ * Visible signature as plain body text under the last content line on the
+ * SAME page — no new blank page, no stamp box / italic / OK badge.
  */
 export async function addDigitalSignature(
   file: File,
@@ -282,12 +300,13 @@ export async function addDigitalSignature(
   // Match body text from office/PDF extract pipeline
   const bodyColor = rgb(0.06, 0.09, 0.16);
   const size = 11;
-  const lineHeight = 15;
-  const gapAfterContent = 18;
-  const marginBottom = 48;
+  const lineHeight = 14;
+  const gapAfterContent = 14;
+  const edgePad = 28;
 
-  let page = pages[pages.length - 1];
-  let { width, height } = page.getSize();
+  // Always sign the existing last content page — never invent a blank page 2.
+  const page = pages[pages.length - 1];
+  const { height } = page.getSize();
   const x = opts.x ?? 50;
 
   const when = new Date().toISOString().slice(0, 19).replace("T", " ") + " UTC";
@@ -297,17 +316,22 @@ export async function addDigitalSignature(
     when,
   ].filter((l): l is string => !!l);
 
+  const blockDepth = (lines.length - 1) * lineHeight;
   const contentBottom =
     findLowestTextBaselineY(page, height) ?? height - 72;
 
-  // Place first signature baseline just below content (PDF y grows upward).
+  // Prefer just under the last content line (minimal blank gap).
   let y = contentBottom - gapAfterContent;
-  // If not enough room above the bottom margin, continue on a new page
-  // so we never overlap existing glyphs.
-  if (y - (lines.length - 1) * lineHeight < marginBottom) {
-    page = doc.addPage([width, height]);
-    ({ width, height } = page.getSize());
-    y = height - 72;
+  // Keep the whole block on-page without overlapping content.
+  const minTopOfBlock = edgePad + blockDepth;
+  if (y < minTopOfBlock) {
+    // Content sits low — still stay on this page; tuck under content with a
+    // tighter gap rather than jumping to a new blank page.
+    y = Math.min(contentBottom - 8, minTopOfBlock);
+  }
+  // Hard floor: never draw above/into the last content baseline.
+  if (y > contentBottom - 8) {
+    y = contentBottom - 8;
   }
 
   for (const line of lines) {
