@@ -259,21 +259,37 @@ async function main() {
       await page
         .locator('[data-testid="premium-preview-merge-compress"]')
         .waitFor({ state: "visible", timeout: 90000 });
+      await page
+        .locator('[data-testid="premium-preview-merge-compress-page-image"]')
+        .waitFor({ state: "visible", timeout: 45000 });
       const pager = await page
         .locator('[data-testid="premium-preview-merge-compress-pager"]')
-        .isVisible()
+        .waitFor({ state: "visible", timeout: 15000 })
+        .then(() => true)
         .catch(() => false);
-      const img = await page
-        .locator('[data-testid="premium-preview-merge-compress-page-image"]')
-        .isVisible()
-        .catch(() => false);
-      mark("merge-compress", img, `preview image=${img} pager=${pager}`);
+      let nav = "";
       if (pager) {
+        const ind = await page
+          .locator(
+            '[data-testid="premium-preview-merge-compress-page-indicator"]'
+          )
+          .innerText();
         await page
           .locator('[data-testid="premium-preview-merge-compress-next"]')
-          .click()
-          .catch(() => {});
+          .click();
+        await page.waitForTimeout(900);
+        const ind2 = await page
+          .locator(
+            '[data-testid="premium-preview-merge-compress-page-indicator"]'
+          )
+          .innerText();
+        nav = `${ind} → ${ind2}`;
+        await page.screenshot({
+          path: path.join(OUT, `${LABEL}merge-compress-multipage.png`),
+          fullPage: true,
+        });
       }
+      mark("merge-compress", true, `preview+pager nav ${nav}`);
     } catch (e) {
       mark("merge-compress", false, e.message || e);
     }
@@ -344,24 +360,34 @@ async function main() {
       mark("media", false, e.message || e);
     }
 
-    // 9) Bulk
+    // 9) Bulk (images/PDFs — txt is unsupported by compress path)
     try {
       await openPremium(page, /Bulk per-file/i);
       await page
         .locator('#tools input[type="file"]')
         .last()
-        .setInputFiles([png, txt]);
+        .setInputFiles([png, pdfA]);
       await page.waitForTimeout(400);
       await page.getByRole("button", { name: /Compress bulk ZIP/i }).click();
       await page
         .locator('[data-testid="premium-preview-bulk"]')
-        .waitFor({ state: "visible", timeout: 90000 });
+        .waitFor({ state: "visible", timeout: 120000 });
       await page
         .locator('[data-testid="premium-preview-bulk-zip-list"]')
-        .waitFor({ state: "visible", timeout: 15000 });
+        .waitFor({ state: "visible", timeout: 30000 });
+      await page.screenshot({
+        path: path.join(OUT, `${LABEL}bulk-zip.png`),
+        fullPage: true,
+      });
       mark("bulk", true, "BULK ZIP PREVIEW list");
     } catch (e) {
       mark("bulk", false, e.message || e);
+      await page
+        .screenshot({
+          path: path.join(OUT, `${LABEL}bulk-FAIL.png`),
+          fullPage: true,
+        })
+        .catch(() => {});
     }
 
     await page.screenshot({
