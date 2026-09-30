@@ -15,9 +15,7 @@ type Locatable = {
   };
 };
 
-function asLocationInfo(
-  loc?: Locatable["location"]
-): LocationInfo {
+function asLocationInfo(loc?: Locatable["location"]): LocationInfo {
   return {
     source:
       loc?.source === "browser_geolocation" ||
@@ -33,20 +31,45 @@ function asLocationInfo(
   };
 }
 
+function needsEnrichment(loc?: Locatable["location"]): boolean {
+  if (!loc) return false;
+  const cityMissing =
+    !loc.city ||
+    /^city unknown$/i.test(loc.city) ||
+    loc.city === "—" ||
+    loc.city === "-";
+  const coordsMissing =
+    typeof loc.latitude !== "number" ||
+    typeof loc.longitude !== "number" ||
+    !Number.isFinite(loc.latitude) ||
+    !Number.isFinite(loc.longitude);
+  // Enrich when we have a signal (IP or coords) but display fields are incomplete.
+  if (cityMissing || coordsMissing) {
+    return Boolean(loc.ip) || !coordsMissing;
+  }
+  return false;
+}
+
 /**
- * If a visitor has coords but no usable city, reverse-geocode and persist.
+ * Ensure visitor has city + lat/lng when IP and/or coords can resolve them.
  */
 export async function ensureVisitorCity(
   visitor: Locatable
 ): Promise<LocationInfo> {
   const loc = asLocationInfo(visitor.location);
   const enriched = await enrichLocationCity(loc);
-  if (!enriched?.city) return loc;
+  if (!enriched) return loc;
   const next: LocationInfo = {
     ...loc,
-    city: enriched.city,
+    city: enriched.city || loc.city,
     region: enriched.region || loc.region,
     country: enriched.country || loc.country,
+    latitude:
+      typeof enriched.latitude === "number" ? enriched.latitude : loc.latitude,
+    longitude:
+      typeof enriched.longitude === "number"
+        ? enriched.longitude
+        : loc.longitude,
   };
   await patchVisitorLocation(visitor.id, next);
   return next;
@@ -57,21 +80,9 @@ export async function ensureVisitorCities(
   visitors: Locatable[],
   opts?: { limit?: number }
 ): Promise<Map<string, LocationInfo>> {
-  const limit = opts?.limit ?? 8;
+  const limit = opts?.limit ?? 12;
   const out = new Map<string, LocationInfo>();
-  const need = visitors.filter((v) => {
-    const loc = v.location;
-    const missing =
-      !loc?.city ||
-      /^city unknown$/i.test(loc.city) ||
-      loc.city === "—" ||
-      loc.city === "-";
-    return (
-      missing &&
-      typeof loc?.latitude === "number" &&
-      typeof loc?.longitude === "number"
-    );
-  });
+  const need = visitors.filter((v) => needsEnrichment(v.location));
   const batch = need.slice(0, limit);
   await Promise.all(
     batch.map(async (v) => {
