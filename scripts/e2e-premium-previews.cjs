@@ -184,7 +184,7 @@ async function main() {
 
     // 2) PDF editor
     try {
-      await openPremium(page, /^PDF Editor$/i);
+      await openPremium(page, /PDF Editor/i);
       await page.locator('[data-testid="premium-pdf-open"]').setInputFiles(pdfA);
       await page.waitForTimeout(1500);
       await page.getByRole("button", { name: /Export edited PDF/i }).click();
