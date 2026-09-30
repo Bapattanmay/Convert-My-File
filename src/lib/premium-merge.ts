@@ -95,6 +95,18 @@ export function resolvePageIndices(
   return Array.from({ length: end - start + 1 }, (_, i) => start - 1 + i);
 }
 
+export type MergeResult = { blob: Blob; pageCount: number };
+
+function pdfBytesToBlob(bytes: Uint8Array): Blob {
+  // Copy into a standalone ArrayBuffer so Blob/File readers always see a
+  // complete PDF (TypedArray.buffer may be a larger pooled ArrayBuffer).
+  const copy = bytes.buffer.slice(
+    bytes.byteOffset,
+    bytes.byteOffset + bytes.byteLength
+  ) as ArrayBuffer;
+  return new Blob([copy], { type: "application/pdf" });
+}
+
 /**
  * Merge with optional per-file page lists or ranges (PDF pages copied selectively;
  * Office files use full text extract when page pick isn't available).
@@ -102,6 +114,13 @@ export function resolvePageIndices(
 export async function mergeWithPageRanges(
   inputs: RangedMergeInput[]
 ): Promise<Blob> {
+  return (await mergeWithPageRangesDetailed(inputs)).blob;
+}
+
+/** Same as mergeWithPageRanges but also returns the output page count. */
+export async function mergeWithPageRangesDetailed(
+  inputs: RangedMergeInput[]
+): Promise<MergeResult> {
   if (inputs.length < 1) throw new Error("Add at least one file.");
   const merged = await PDFDocument.create();
 
@@ -127,12 +146,11 @@ export async function mergeWithPageRanges(
     });
   }
 
-  if (merged.getPageCount() === 0) {
+  const pageCount = merged.getPageCount();
+  if (pageCount === 0) {
     throw new Error("Merge produced no pages.");
   }
-  const bytes = await merged.save();
-  // Pass a copy — Uint8Array view / SharedArrayBuffer can upset Blob typings.
-  return new Blob([bytes.slice()], { type: "application/pdf" });
+  return { blob: pdfBytesToBlob(await merged.save()), pageCount };
 }
 
 /** Merge then resize to an exact target byte size. */
@@ -140,7 +158,7 @@ export async function mergeAndCompress(
   inputs: RangedMergeInput[],
   targetBytes: number
 ): Promise<Blob> {
-  const merged = await mergeWithPageRanges(inputs);
+  const { blob: merged } = await mergeWithPageRangesDetailed(inputs);
   const buf = await merged.arrayBuffer();
   return resizeToExactBytes(buf, targetBytes, "application/pdf");
 }
@@ -303,6 +321,5 @@ export async function addDigitalSignature(
     y -= lineHeight;
   }
 
-  const out = await doc.save();
-  return new Blob([out.slice()], { type: "application/pdf" });
+  return pdfBytesToBlob(await doc.save());
 }

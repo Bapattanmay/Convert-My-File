@@ -51,7 +51,7 @@ import {
   addDigitalSignature,
   getPdfPageCount,
   mergeAndCompress,
-  mergeWithPageRanges,
+  mergeWithPageRangesDetailed,
   parsePageList,
   type RangedMergeInput,
 } from "@/lib/premium-merge";
@@ -877,18 +877,9 @@ function PageMergePanel() {
         kind: r.kind,
         pages: r.kind === "pdf" ? r.pages : undefined,
       }));
-      const blob = await mergeWithPageRanges(inputs);
+      const { blob, pageCount } = await mergeWithPageRangesDetailed(inputs);
       setResult(blob);
-      // Count pages in output for preview confirmation
-      try {
-        const { PDFDocument } = await import("pdf-lib");
-        const ab = await blob.arrayBuffer();
-        const doc = await PDFDocument.load(ab, { ignoreEncryption: true });
-        const count = doc.getPageCount();
-        setResultPages(count > 0 ? count : totalSelected);
-      } catch {
-        setResultPages(totalSelected);
-      }
+      setResultPages(pageCount > 0 ? pageCount : totalSelected);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Merge failed");
     } finally {
