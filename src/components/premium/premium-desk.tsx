@@ -1233,7 +1233,7 @@ function SignPanel() {
   return (
     <PanelShell
       title="Digital signature"
-      desc="Insert a visible digital signature block and export PDF."
+      desc="Adds plain signer lines under the last content — no stamp box."
     >
       <Button
         type="button"
@@ -1249,9 +1249,26 @@ function SignPanel() {
         className="hidden"
         accept=".pdf,.doc,.docx,application/pdf"
         onChange={(e) => {
-          setFile(e.target.files?.[0] || null);
-          setResult(null);
+          const raw = e.target.files?.[0] || null;
           e.target.value = "";
+          setResult(null);
+          if (!raw) {
+            setFile(null);
+            return;
+          }
+          // Snapshot bytes so Apply still works after later UI edits.
+          void raw.arrayBuffer().then(
+            (buf) => {
+              setFile(
+                new File([buf], raw.name, {
+                  type: raw.type || "application/pdf",
+                  lastModified: raw.lastModified,
+                })
+              );
+              setError(null);
+            },
+            () => setError(`Could not read ${raw.name}`)
+          );
         }}
       />
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -1259,6 +1276,7 @@ function SignPanel() {
           <Label className="text-xs">Signer name</Label>
           <Input
             className="mt-1"
+            data-testid="sign-name"
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
@@ -1267,6 +1285,7 @@ function SignPanel() {
           <Label className="text-xs">Reason</Label>
           <Input
             className="mt-1"
+            data-testid="sign-reason"
             value={reason}
             onChange={(e) => setReason(e.target.value)}
           />
@@ -1274,9 +1293,10 @@ function SignPanel() {
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
         <Button
-          disabled={busy}
+          disabled={busy || !file}
           onClick={() => void run()}
           className="rounded-full bg-[#0F172A] text-white"
+          data-testid="sign-apply"
         >
           {busy ? <Loader2 className="animate-spin" /> : null}
           Apply signature
@@ -1285,6 +1305,7 @@ function SignPanel() {
           <Button
             variant="outline"
             className="rounded-full border-[#C5A880]"
+            data-testid="sign-download"
             onClick={() => {
               downloadBlob(result, "signed.pdf");
               markDownloaded();

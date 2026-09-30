@@ -7,8 +7,15 @@ import {
   type MergeKind,
 } from "@/lib/merge";
 import { resizeToExactBytes } from "@/lib/file-utils";
-import { PDFDocument, StandardFonts, rgb, degrees } from "pdf-lib";
-
+import {
+  PDFDocument,
+  PDFArray,
+  PDFRawStream,
+  StandardFonts,
+  decodePDFRawStream,
+  rgb,
+  type PDFPage,
+} from "pdf-lib";
 
 export type PageRange = { start: number; end: number }; // 1-based inclusive
 
@@ -124,8 +131,8 @@ export async function mergeWithPageRanges(
     throw new Error("Merge produced no pages.");
   }
   const bytes = await merged.save();
-  // Pass the Uint8Array view (not bytes.buffer) — underlying ArrayBuffer may be larger.
-  return new Blob([bytes], { type: "application/pdf" });
+  // Pass a copy — Uint8Array view / SharedArrayBuffer can upset Blob typings.
+  return new Blob([bytes.slice()], { type: "application/pdf" });
 }
 
 /** Merge then resize to an exact target byte size. */
@@ -141,12 +148,97 @@ export async function mergeAndCompress(
 export type SignatureOptions = {
   signerName: string;
   reason?: string;
-  /** 0–1 normalized position from bottom-left of last page */
+  /** Optional left margin override (PDF points). Default matches common body margin. */
   x?: number;
-  y?: number;
 };
 
-/** Visual digital signature stamp on last page (client-side appearance). */
+/** Decode page content streams to Latin-1 text for operator scanning. */
+function readPageContent(page: PDFPage): string {
+  const contents = page.node.Contents();
+  if (!contents) return "";
+  const refs: unknown[] = [];
+  if (contents instanceof PDFArray) {
+    for (let i = 0; i < contents.size(); i++) refs.push(contents.get(i));
+  } else {
+    refs.push(contents);
+  }
+  let out = "";
+  for (const ref of refs) {
+    try {
+      const raw = page.doc.context.lookup(ref as never, PDFRawStream);
+      const decoded = decodePDFRawStream(raw).decode();
+      out += new TextDecoder("latin1").decode(decoded) + "\n";
+    } catch {
+      /* ignore unreadable streams */
+    }
+  }
+  return out;
+}
+
+/**
+ * Lowest text baseline Y on the page (PDF space: origin bottom-left).
+ * Falls back to null when the stream has no text positioning.
+ */
+export function findLowestTextBaselineY(
+  page: PDFPage,
+  pageHeight: number
+): number | null {
+  const content = readPageContent(page);
+  if (!content.trim()) return null;
+
+  let minY = Infinity;
+  let curY = pageHeight;
+  let leading = 14;
+  let pendingY: number | null = null;
+
+  // Only count Y when text is actually painted (Tj/TJ/'/").
+  // pdf-lib emits a trailing T* after each drawText — that must not
+  // pull the "content bottom" below the real glyphs.
+  const tokens = content.match(/[^\s]+/g) || [];
+  const nums: number[] = [];
+  for (const tok of tokens) {
+    if (Number.isFinite(Number(tok)) && /^-?\d*\.?\d+$/.test(tok)) {
+      nums.push(Number(tok));
+      continue;
+    }
+    if (tok === "TL" && nums.length >= 1) {
+      leading = Math.abs(nums[nums.length - 1]);
+      nums.length = 0;
+      continue;
+    }
+    if (tok === "Tm" && nums.length >= 6) {
+      curY = nums[nums.length - 1];
+      pendingY = curY;
+      nums.length = 0;
+      continue;
+    }
+    if ((tok === "Td" || tok === "TD") && nums.length >= 2) {
+      curY += nums[nums.length - 1];
+      pendingY = curY;
+      nums.length = 0;
+      continue;
+    }
+    if (tok === "T*") {
+      curY -= leading;
+      pendingY = curY;
+      nums.length = 0;
+      continue;
+    }
+    if (tok === "Tj" || tok === "TJ" || tok === "'" || tok === '"') {
+      if (pendingY != null) minY = Math.min(minY, pendingY);
+      nums.length = 0;
+      continue;
+    }
+    if (/^[A-Za-z'"]/.test(tok)) nums.length = 0;
+  }
+
+  return Number.isFinite(minY) ? minY : null;
+}
+
+/**
+ * Visible signature as plain body text under the last content line —
+ * no bordered stamp, no italic/blue chrome, no OK badge.
+ */
 export async function addDigitalSignature(
   file: File,
   opts: SignatureOptions
@@ -166,67 +258,50 @@ export async function addDigitalSignature(
   const doc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
   const pages = doc.getPages();
   if (!pages.length) throw new Error("Document has no pages.");
-  const page = pages[pages.length - 1];
-  const { width, height } = page.getSize();
-  const font = await doc.embedFont(StandardFonts.Helvetica);
-  const italic = await doc.embedFont(StandardFonts.HelveticaOblique);
-  const x = (opts.x ?? 0.12) * width;
-  const y = (opts.y ?? 0.08) * height;
-  const boxW = Math.min(260, width * 0.45);
-  const boxH = 56;
 
-  page.drawRectangle({
-    x,
-    y,
-    width: boxW,
-    height: boxH,
-    borderColor: rgb(0.12, 0.35, 0.55),
-    borderWidth: 1.5,
-    color: rgb(0.95, 0.97, 1),
-    opacity: 0.92,
-  });
+  const font = await doc.embedFont(StandardFonts.Helvetica);
+  // Match body text from office/PDF extract pipeline
+  const bodyColor = rgb(0.06, 0.09, 0.16);
+  const size = 11;
+  const lineHeight = 15;
+  const gapAfterContent = 18;
+  const marginBottom = 48;
+
+  let page = pages[pages.length - 1];
+  let { width, height } = page.getSize();
+  const x = opts.x ?? 50;
 
   const when = new Date().toISOString().slice(0, 19).replace("T", " ") + " UTC";
-  page.drawText("Digitally signed", {
-    x: x + 10,
-    y: y + boxH - 16,
-    size: 9,
-    font,
-    color: rgb(0.1, 0.2, 0.35),
-  });
-  page.drawText(opts.signerName.slice(0, 48), {
-    x: x + 10,
-    y: y + boxH - 32,
-    size: 12,
-    font: italic,
-    color: rgb(0.05, 0.15, 0.3),
-  });
-  page.drawText(when, {
-    x: x + 10,
-    y: y + 10,
-    size: 8,
-    font,
-    color: rgb(0.3, 0.35, 0.4),
-  });
-  if (opts.reason) {
-    page.drawText(opts.reason.slice(0, 40), {
-      x: x + 10,
-      y: y + 22,
-      size: 8,
-      font,
-      color: rgb(0.25, 0.3, 0.35),
-    });
+  const lines = [
+    `Signed: ${opts.signerName.slice(0, 64)}`,
+    opts.reason?.trim() ? `Reason: ${opts.reason.trim().slice(0, 80)}` : null,
+    when,
+  ].filter((l): l is string => !!l);
+
+  const contentBottom =
+    findLowestTextBaselineY(page, height) ?? height - 72;
+
+  // Place first signature baseline just below content (PDF y grows upward).
+  let y = contentBottom - gapAfterContent;
+  // If not enough room above the bottom margin, continue on a new page
+  // so we never overlap existing glyphs.
+  if (y - (lines.length - 1) * lineHeight < marginBottom) {
+    page = doc.addPage([width, height]);
+    ({ width, height } = page.getSize());
+    y = height - 72;
   }
-  // Use ASCII-only mark — StandardFonts.Helvetica is WinAnsi and cannot encode ✓
-  page.drawText("OK", {
-    x: x + boxW - 36,
-    y: y + boxH / 2 - 6,
-    size: 14,
-    font,
-    color: rgb(0.1, 0.45, 0.25),
-    rotate: degrees(-8),
-  });
+
+  for (const line of lines) {
+    page.drawText(line, {
+      x,
+      y,
+      size,
+      font,
+      color: bodyColor,
+    });
+    y -= lineHeight;
+  }
 
   const out = await doc.save();
-  return new Blob([out], { type: "application/pdf" });
+  return new Blob([out.slice()], { type: "application/pdf" });
 }
