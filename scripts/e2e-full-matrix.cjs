@@ -225,7 +225,7 @@ async function ensureFixtures() {
   await buildDocx(path.join(FIX, "sample.docx"), "MATRIX-DOCX-ALPHA Platform Code Review");
   await buildDocx(
     path.join(FIX, "translate.docx"),
-    "Hello world. Platform quality depends on careful code review and testing."
+    "The Convert My File workspace keeps documents ephemeral after download."
   );
   await buildPdf(path.join(FIX, "sample.pdf"), "MATRIX-PDF-BETA", 1);
   await buildPdf(path.join(FIX, "pages-a.pdf"), "RANGE-A", 7);
@@ -476,41 +476,28 @@ async function main() {
     await page.screenshot({ path: path.join(OUT, `${LABEL}matrix-pdf-editor-FAIL.png`), fullPage: true }).catch(() => {});
   }
 
-  // ═══════ PREMIUM 3: 5-language batch ═══════
+  // ═══════ PREMIUM 3: 5-language batch (live /api/translate) ═══════
   try {
-    // Fixture translations for pack ZIP proof (MyMemory free tier often 429s under batch).
-    // Free Translator still hits live /api/translate above.
-    await page.route("**/api/translate", async (route) => {
-      const body = route.request().postDataJSON() || {};
-      const target = body.target || "xx";
-      const samples = {
-        hindi: "नमस्ते दुनिया। प्लेटफ़ॉर्म गुणवत्ता सावधानीपूर्ण कोड समीक्षा पर निर्भर करती है।",
-        tamil: "வணக்கம் உலகம். தளத் தரம் கவனமாக குறியீடு மதிப்பாய்வைப் பொறுத்தது.",
-        spanish: "Hola mundo. La calidad de la plataforma depende de una revisión cuidadosa del código.",
-        french: "Bonjour le monde. La qualité de la plateforme dépend d'une revue de code soignée.",
-        german: "Hallo Welt. Die Plattformqualität hängt von sorgfältiger Codeprüfung ab.",
-      };
-      const translatedText = samples[target] || `[${target}] ${body.text || ""}`;
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({
-          translatedText,
-          provider: "e2e-fixture",
-          note: "Matrix fixture — free Translator uses live MyMemory",
-        }),
-      });
-    });
     await openPremiumPanel(page, "5-language");
     await page.locator("#tools textarea").fill(
-      "Hello world. Platform quality depends on careful code review and testing."
+      "The Convert My File workspace keeps documents ephemeral after download."
     );
+    // Prefer 2 languages for live quota stability (Hindi + Spanish)
+    for (const lang of ["Tamil", "French", "German"]) {
+      const btn = page.locator("#tools button").filter({ hasText: new RegExp(`^${lang}$`) }).first();
+      if (await btn.count()) await btn.click().catch(() => {});
+    }
+    await page.waitForTimeout(400);
     row(matrix, "Premium: 5-lang batch", "input", true, `source chars=${(await page.locator("#tools textarea").inputValue()).length}`);
     await page.getByRole("button", { name: /Translate batch/i }).click();
-    await page.getByRole("button", { name: /Download pack/i }).waitFor({ state: "visible", timeout: 120000 });
+    await page.getByRole("button", { name: /^Download pack$/i }).waitFor({ state: "visible", timeout: 180000 });
     const langTxt = await page.locator("#tools").innerText();
-    row(matrix, "Premium: 5-lang batch", "process", true, "batch done");
-    row(matrix, "Premium: 5-lang batch", "preview", /Hindi|Tamil|Spanish|French|German/i.test(langTxt), "lang cards visible");
+    const liveOk = !/429|No successful translations/i.test(langTxt);
+    row(matrix, "Premium: 5-lang batch", "process", liveOk, liveOk ? "batch done (live API)" : langTxt.slice(0, 120));
+    const previewOk =
+      (/[ऀ-ॿ]/.test(langTxt) || /espacio|documento|efímer/i.test(langTxt)) &&
+      /Hindi|Spanish/i.test(langTxt);
+    row(matrix, "Premium: 5-lang batch", "preview", previewOk, previewOk ? "live lang previews" : langTxt.slice(0, 100));
     const dlBtn = page.getByRole("button", { name: /^Download pack$/i });
     const [dl] = await Promise.all([
       page.waitForEvent("download", { timeout: 60000 }),
@@ -519,11 +506,9 @@ async function main() {
     const packPath = path.join(OUT, `${LABEL}matrix-5lang.zip`);
     await dl.saveAs(packPath);
     const pack = fs.readFileSync(packPath);
-    row(matrix, "Premium: 5-lang batch", "output", pack[0] === 0x50 && pack[1] === 0x4b, `ZIP ${pack.length}b (fixture translations)`);
-    await page.unroute("**/api/translate");
+    row(matrix, "Premium: 5-lang batch", "output", pack[0] === 0x50 && pack[1] === 0x4b, `ZIP ${pack.length}b (live API)`);
     await page.screenshot({ path: path.join(OUT, `${LABEL}matrix-5lang.png`) });
   } catch (e) {
-    await page.unroute("**/api/translate").catch(() => {});
     for (const k of ["input", "process", "preview", "output"]) {
       if (!matrix["Premium: 5-lang batch"]?.[k]) row(matrix, "Premium: 5-lang batch", k, false, e.message || e);
     }

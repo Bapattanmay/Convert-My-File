@@ -6,7 +6,7 @@
 
 export type TranslateResult = {
   translatedText: string;
-  provider: "mymemory" | "google" | "passthrough";
+  provider: "mymemory" | "google" | "google-fallback" | "passthrough";
   targetLang: string;
   sourceLang: string;
   truncated: boolean;
@@ -168,6 +168,47 @@ async function translateMyMemory(
   throw lastErr || new Error("MyMemory failed after retries");
 }
 
+/**
+ * Keyless Google Translate fallback (dict-chrome-ex client).
+ * Used when MyMemory free tier returns 429 from Render IPs.
+ */
+async function translateGoogleFallback(
+  text: string,
+  source: string,
+  target: string
+): Promise<string> {
+  const url = new URL("https://clients5.google.com/translate_a/t");
+  url.searchParams.set("client", "dict-chrome-ex");
+  url.searchParams.set("sl", source.split("-")[0] || "en");
+  url.searchParams.set("tl", target.split("-")[0] || "en");
+  url.searchParams.set("q", text);
+
+  const res = await fetch(url.toString(), {
+    headers: { Accept: "application/json" },
+    next: { revalidate: 0 },
+  });
+  if (!res.ok) {
+    throw new Error(`Google fallback HTTP ${res.status}`);
+  }
+  const data = (await res.json()) as unknown;
+  // Typical shapes: ["translated"] or [["translated","source",...],...]
+  let out = "";
+  if (typeof data === "string") out = data;
+  else if (Array.isArray(data)) {
+    const first = data[0];
+    if (typeof first === "string") out = first;
+    else if (Array.isArray(first) && typeof first[0] === "string") out = first[0];
+    else if (Array.isArray(first)) {
+      out = first
+        .map((row) => (Array.isArray(row) ? row[0] : row))
+        .filter((x) => typeof x === "string")
+        .join("");
+    }
+  }
+  if (!out.trim()) throw new Error("Google fallback returned empty text");
+  return out;
+}
+
 async function translateGoogleOfficial(
   text: string,
   source: string,
@@ -252,20 +293,41 @@ export async function translateText(opts: {
     };
   }
 
-  for (const c of chunks) {
-    out.push(await translateMyMemory(c, source, target));
-    await sleep(120);
+  let provider: TranslateResult["provider"] = "mymemory";
+  let note: string | undefined = truncated
+    ? `Preview limited to ~${MAX_CHARS} characters (free tier).`
+    : "Translated via MyMemory free API (daily quota applies).";
+
+  try {
+    for (const c of chunks) {
+      out.push(await translateMyMemory(c, source, target));
+      await sleep(200);
+    }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    // Render egress often hits MyMemory 429 — fall back to keyless Google client
+    if (/429|MyMemory/i.test(msg)) {
+      out.length = 0;
+      for (const c of chunks) {
+        out.push(await translateGoogleFallback(c, source, target));
+        await sleep(120);
+      }
+      provider = "google-fallback";
+      note = truncated
+        ? `Preview limited to ~${MAX_CHARS} characters. MyMemory quota exceeded; used backup translator.`
+        : "MyMemory quota exceeded; used backup translator.";
+    } else {
+      throw e;
+    }
   }
 
   return {
     translatedText: out.join("\n"),
-    provider: "mymemory",
+    provider,
     targetLang: target,
     sourceLang: source,
     truncated,
-    note: truncated
-      ? `Preview limited to ~${MAX_CHARS} characters (MyMemory free tier).`
-      : "Translated via MyMemory free API (daily quota applies).",
+    note,
   };
 }
 
