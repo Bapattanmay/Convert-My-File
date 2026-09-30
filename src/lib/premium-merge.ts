@@ -15,8 +15,13 @@ export type PageRange = { start: number; end: number }; // 1-based inclusive
 export type RangedMergeInput = {
   file: File;
   kind: MergeKind;
-  /** If omitted, all pages (PDF) or full extract (Office). */
+  /** Contiguous 1-based inclusive range (used when `pages` is absent). */
   range?: PageRange;
+  /**
+   * Explicit 1-based pages in merge order (non-contiguous OK).
+   * When set, takes precedence over `range`.
+   */
+  pages?: number[];
 };
 
 export async function getPdfPageCount(file: File): Promise<number> {
@@ -37,9 +42,55 @@ export function normalizeRange(
   return { start, end };
 }
 
+/** Parse "1,5, 8-10,3" → ordered unique-valid pages (duplicates kept in list order once). */
+export function parsePageList(text: string, pageCount: number): number[] {
+  const out: number[] = [];
+  const seen = new Set<number>();
+  const parts = text.split(/[,;\s]+/).map((s) => s.trim()).filter(Boolean);
+  for (const part of parts) {
+    const rangeMatch = /^(\d+)\s*[-–]\s*(\d+)$/.exec(part);
+    if (rangeMatch) {
+      let a = Number(rangeMatch[1]);
+      let b = Number(rangeMatch[2]);
+      if (!Number.isFinite(a) || !Number.isFinite(b)) continue;
+      if (a > b) [a, b] = [b, a];
+      for (let p = a; p <= b; p++) {
+        if (p >= 1 && p <= pageCount && !seen.has(p)) {
+          seen.add(p);
+          out.push(p);
+        }
+      }
+      continue;
+    }
+    const n = Number(part);
+    if (!Number.isFinite(n)) continue;
+    const p = Math.floor(n);
+    if (p >= 1 && p <= pageCount && !seen.has(p)) {
+      seen.add(p);
+      out.push(p);
+    }
+  }
+  return out;
+}
+
+/** Resolve 0-based pdf-lib indices in the order pages should appear. */
+export function resolvePageIndices(
+  input: Pick<RangedMergeInput, "pages" | "range">,
+  pageCount: number
+): number[] {
+  if (input.pages && input.pages.length > 0) {
+    return input.pages
+      .map((p) => Math.floor(Number(p)))
+      .filter((p) => p >= 1 && p <= pageCount)
+      .map((p) => p - 1);
+  }
+  const { start, end } = normalizeRange(input.range, pageCount);
+  return Array.from({ length: end - start + 1 }, (_, i) => start - 1 + i);
+}
+
 /**
- * Merge with optional per-file page ranges (PDF pages copied selectively;
- * Office files use full text extract when ranged derive isn't available).
+ * Merge with optional per-file page lists or ranges (PDF pages copied selectively;
+ * Office files use full text extract when page pick isn't available).
  */
 export async function mergeWithPageRanges(
   inputs: RangedMergeInput[]
@@ -53,11 +104,10 @@ export async function mergeWithPageRanges(
         ignoreEncryption: true,
       });
       const count = src.getPageCount();
-      const { start, end } = normalizeRange(input.range, count);
-      const indices = Array.from(
-        { length: end - start + 1 },
-        (_, i) => start - 1 + i
-      );
+      const indices = resolvePageIndices(input, count);
+      if (!indices.length) {
+        throw new Error(`No valid pages selected for ${input.file.name}.`);
+      }
       const pages = await merged.copyPages(src, indices);
       pages.forEach((p) => merged.addPage(p));
       continue;

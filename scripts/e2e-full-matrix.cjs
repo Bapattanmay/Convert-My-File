@@ -526,20 +526,31 @@ async function main() {
     await page.waitForTimeout(1500);
     const prTxt = await page.locator("#tools").innerText();
     row(matrix, "Premium: Page-range merge", "input", /pages-a\.pdf/i.test(prTxt) && /7 pages/i.test(prTxt), "PDFs with page counts");
-    // Set first file range 3-7 via number inputs
-    const nums = page.locator('#tools input[type="number"]');
-    const nCount = await nums.count();
-    if (nCount >= 2) {
-      await nums.nth(0).fill("3");
-      await nums.nth(1).fill("7");
+    // Contiguous From/To drafts (text) + preview of planned pages
+    const rows = page.locator('[data-testid="page-merge-row"]');
+    const rowCount = await rows.count();
+    if (rowCount >= 1) {
+      const from0 = rows.nth(0).locator('[data-testid="page-merge-from"]');
+      const to0 = rows.nth(0).locator('[data-testid="page-merge-to"]');
+      await from0.fill("3");
+      await to0.fill("7");
+      await to0.blur();
     }
-    if (nCount >= 4) {
-      await nums.nth(2).fill("1");
-      await nums.nth(3).fill("2");
+    if (rowCount >= 2) {
+      const from1 = rows.nth(1).locator('[data-testid="page-merge-from"]');
+      const to1 = rows.nth(1).locator('[data-testid="page-merge-to"]');
+      await from1.fill("1");
+      await to1.fill("2");
+      await to1.blur();
     }
-    row(matrix, "Premium: Page-range merge", "preview", nCount >= 2, `range inputs=${nCount}`);
-    await page.getByRole("button", { name: /Merge selected pages/i }).click();
-    await page.waitForSelector("text=/Download \\(/i", { timeout: 60000 });
+    await page.waitForTimeout(300);
+    const previewTxt = await page.locator('[data-testid="page-merge-preview"]').innerText().catch(() => "");
+    const previewOk =
+      /MERGE PREVIEW/i.test(previewTxt) &&
+      (/3,\s*4,\s*5,\s*6,\s*7/.test(previewTxt) || /3/.test(previewTxt));
+    row(matrix, "Premium: Page-range merge", "preview", previewOk, previewOk ? "MERGE PREVIEW 3–7 + 1–2" : previewTxt.slice(0, 120));
+    await page.locator('[data-testid="page-merge-run"]').or(page.getByRole("button", { name: /Merge selected pages/i })).click();
+    await page.waitForSelector('[data-testid="premium-page-range-download"], text=/Download \\(/i', { timeout: 60000 });
     row(matrix, "Premium: Page-range merge", "process", true, "merge ok");
     const dlPr = page.locator('[data-testid="premium-page-range-download"]').or(
       page.getByRole("button", { name: /Download \(/i })

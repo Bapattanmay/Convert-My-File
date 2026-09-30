@@ -52,6 +52,7 @@ import {
   getPdfPageCount,
   mergeAndCompress,
   mergeWithPageRanges,
+  parsePageList,
   type RangedMergeInput,
 } from "@/lib/premium-merge";
 import {
@@ -93,7 +94,7 @@ const PANELS: { id: PanelId; title: string; blurb: string }[] = [
   {
     id: "page-merge",
     title: "Page-range merge",
-    blurb: "Pick pages per file (e.g. 3–7 + 1–2).",
+    blurb: "Pick any pages per file (e.g. 1,5,8 + 2,4,9).",
   },
   {
     id: "merge-compress",
@@ -697,9 +698,34 @@ type MergeRow = {
   file: File;
   kind: NonNullable<ReturnType<typeof detectMergeKind>>;
   pageCount: number;
-  start: number;
-  end: number;
+  /** Selected pages in merge order (1-based). */
+  pages: number[];
+  /** Draft comma list (may be mid-edit). */
+  pagesText: string;
+  /** Draft From/To — strings so empty/`5` typing works; commit on blur. */
+  fromText: string;
+  toText: string;
 };
+
+function pagesToText(pages: number[]): string {
+  return pages.join(", ");
+}
+
+function applyContiguousDraft(
+  fromText: string,
+  toText: string,
+  pageCount: number
+): number[] | null {
+  if (fromText.trim() === "" || toText.trim() === "") return null;
+  const start = Number(fromText);
+  const end = Number(toText);
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return null;
+  const a = Math.max(1, Math.min(Math.floor(start), pageCount));
+  const b = Math.max(1, Math.min(Math.floor(end), pageCount));
+  const lo = Math.min(a, b);
+  const hi = Math.max(a, b);
+  return Array.from({ length: hi - lo + 1 }, (_, i) => lo + i);
+}
 
 function PageMergePanel() {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -707,7 +733,14 @@ function PageMergePanel() {
   const [rows, setRows] = useState<MergeRow[]>([]);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<Blob | null>(null);
+  const [resultPages, setResultPages] = useState(0);
   const [error, setError] = useState<string | null>(null);
+
+  const updateRow = (id: string, patch: Partial<MergeRow>) => {
+    setRows((prev) => prev.map((x) => (x.id === id ? { ...x, ...patch } : x)));
+    setResult(null);
+    setResultPages(0);
+  };
 
   const add = async (list: FileList | null) => {
     if (!list?.length) return;
@@ -727,24 +760,101 @@ function PageMergePanel() {
           pageCount = 1;
         }
       }
+      const pages = Array.from({ length: pageCount }, (_, i) => i + 1);
       next.push({
         id: crypto.randomUUID(),
         file,
         kind,
         pageCount,
-        start: 1,
-        end: pageCount,
+        pages,
+        pagesText: pagesToText(pages),
+        fromText: "1",
+        toText: String(pageCount),
       });
     }
     setRows((prev) => [...prev, ...next]);
     setResult(null);
+    setResultPages(0);
     startWipeTimer();
   };
+
+  const togglePage = (id: string, page: number) => {
+    setRows((prev) =>
+      prev.map((x) => {
+        if (x.id !== id) return x;
+        const idx = x.pages.indexOf(page);
+        const pages =
+          idx >= 0
+            ? x.pages.filter((p) => p !== page)
+            : [...x.pages, page];
+        return {
+          ...x,
+          pages,
+          pagesText: pagesToText(pages),
+          fromText: pages.length ? String(Math.min(...pages)) : "",
+          toText: pages.length ? String(Math.max(...pages)) : "",
+        };
+      })
+    );
+    setResult(null);
+    setResultPages(0);
+  };
+
+  const commitPagesText = (id: string, pageCount: number, text: string) => {
+    const pages = parsePageList(text, pageCount);
+    updateRow(id, {
+      pages,
+      pagesText: pagesToText(pages),
+      fromText: pages.length ? String(Math.min(...pages)) : "",
+      toText: pages.length ? String(Math.max(...pages)) : "",
+    });
+  };
+
+  const commitFromTo = (id: string, pageCount: number, fromText: string, toText: string) => {
+    const pages = applyContiguousDraft(fromText, toText, pageCount);
+    if (!pages) {
+      // Keep draft strings; don't force `1` while empty/invalid
+      updateRow(id, { fromText, toText });
+      return;
+    }
+    updateRow(id, {
+      pages,
+      pagesText: pagesToText(pages),
+      fromText: String(pages[0]),
+      toText: String(pages[pages.length - 1]),
+    });
+  };
+
+  const mergePlan = useMemo(() => {
+    return rows.map((r) => ({
+      id: r.id,
+      name: r.file.name,
+      kind: r.kind,
+      pages: r.kind === "pdf" ? r.pages : null,
+      label:
+        r.kind === "pdf"
+          ? r.pages.length
+            ? r.pages.join(", ")
+            : "(none selected)"
+          : "full extract",
+    }));
+  }, [rows]);
+
+  const totalSelected = mergePlan.reduce(
+    (n, r) => n + (r.pages ? r.pages.length : 1),
+    0
+  );
 
   const run = async () => {
     if (rows.length < 1) {
       setError("Add PDF/Word/PPT files.");
       return;
+    }
+    for (const r of rows) {
+      if (r.kind === "pdf" && r.pages.length < 1) {
+        setError(`Select at least one page from ${r.file.name}.`);
+        return;
+      }
     }
     setBusy(true);
     setError(null);
@@ -752,11 +862,18 @@ function PageMergePanel() {
       const inputs: RangedMergeInput[] = rows.map((r) => ({
         file: r.file,
         kind: r.kind,
-        range:
-          r.kind === "pdf" ? { start: r.start, end: r.end } : undefined,
+        pages: r.kind === "pdf" ? r.pages : undefined,
       }));
       const blob = await mergeWithPageRanges(inputs);
       setResult(blob);
+      // Count pages in output for preview confirmation
+      try {
+        const { PDFDocument } = await import("pdf-lib");
+        const doc = await PDFDocument.load(await blob.arrayBuffer());
+        setResultPages(doc.getPageCount());
+      } catch {
+        setResultPages(totalSelected);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Merge failed");
     } finally {
@@ -767,7 +884,7 @@ function PageMergePanel() {
   return (
     <PanelShell
       title="Page-range merge"
-      desc="Choose which pages from each PDF to include (visual 1-based range)."
+      desc="Click page chips in any order, or type a comma list (e.g. 1,5,8). From/To sets a contiguous block on blur."
     >
       <Button
         type="button"
@@ -793,6 +910,7 @@ function PageMergePanel() {
           <li
             key={r.id}
             className="rounded-2xl border border-[#E8E2D6] bg-[#FBF9F5] p-3"
+            data-testid="page-merge-row"
           >
             <p className="truncate text-sm font-medium">{r.file.name}</p>
             <p className="text-xs text-[#94A3B8]">
@@ -800,74 +918,139 @@ function PageMergePanel() {
               {r.kind === "pdf" ? ` · ${r.pageCount} pages` : " · full extract"}
             </p>
             {r.kind === "pdf" ? (
-              <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
-                <Label className="text-xs">From</Label>
-                <Input
-                  type="number"
-                  min={1}
-                  max={r.pageCount}
-                  className="w-20"
-                  value={r.start}
-                  onChange={(e) =>
-                    setRows((prev) =>
-                      prev.map((x) =>
-                        x.id === r.id
-                          ? { ...x, start: Number(e.target.value) || 1 }
-                          : x
-                      )
-                    )
-                  }
-                />
-                <Label className="text-xs">To</Label>
-                <Input
-                  type="number"
-                  min={1}
-                  max={r.pageCount}
-                  className="w-20"
-                  value={r.end}
-                  onChange={(e) =>
-                    setRows((prev) =>
-                      prev.map((x) =>
-                        x.id === r.id
-                          ? { ...x, end: Number(e.target.value) || 1 }
-                          : x
-                      )
-                    )
-                  }
-                />
-                <div className="flex flex-wrap gap-1">
-                  {Array.from({ length: Math.min(r.pageCount, 12) }, (_, i) => {
+              <div className="mt-2 space-y-2 text-sm">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Label className="text-xs">From</Label>
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    className="w-16"
+                    data-testid="page-merge-from"
+                    value={r.fromText}
+                    onChange={(e) =>
+                      updateRow(r.id, { fromText: e.target.value })
+                    }
+                    onBlur={() =>
+                      commitFromTo(r.id, r.pageCount, r.fromText, r.toText)
+                    }
+                  />
+                  <Label className="text-xs">To</Label>
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    className="w-16"
+                    data-testid="page-merge-to"
+                    value={r.toText}
+                    onChange={(e) =>
+                      updateRow(r.id, { toText: e.target.value })
+                    }
+                    onBlur={() =>
+                      commitFromTo(r.id, r.pageCount, r.fromText, r.toText)
+                    }
+                  />
+                  <span className="text-[10px] text-[#94A3B8]">
+                    contiguous on blur
+                  </span>
+                </div>
+                <div>
+                  <Label className="text-xs">Pages (comma list)</Label>
+                  <Input
+                    className="mt-1"
+                    data-testid="page-merge-list"
+                    placeholder="e.g. 1,5,8 or 2-4,9"
+                    value={r.pagesText}
+                    onChange={(e) =>
+                      updateRow(r.id, { pagesText: e.target.value })
+                    }
+                    onBlur={() =>
+                      commitPagesText(r.id, r.pageCount, r.pagesText)
+                    }
+                  />
+                </div>
+                <div
+                  className="flex flex-wrap gap-1"
+                  data-testid="page-merge-chips"
+                >
+                  {Array.from({ length: r.pageCount }, (_, i) => {
                     const page = i + 1;
-                    const on = page >= r.start && page <= r.end;
+                    const order = r.pages.indexOf(page);
+                    const on = order >= 0;
                     return (
-                      <span
+                      <button
                         key={page}
-                        className={`flex h-7 w-7 items-center justify-center rounded-md text-[10px] font-bold ${
+                        type="button"
+                        aria-pressed={on}
+                        aria-label={`Page ${page}${on ? ` selected #${order + 1}` : ""}`}
+                        onClick={() => togglePage(r.id, page)}
+                        className={`relative flex h-8 min-w-8 items-center justify-center rounded-md px-1.5 text-[11px] font-bold transition ${
                           on
                             ? "bg-[#0F172A] text-[#D4AF37]"
-                            : "bg-white text-[#94A3B8]"
+                            : "bg-white text-[#94A3B8] hover:border-[#C5A880] border border-[#E8E2D6]"
                         }`}
                       >
                         {page}
-                      </span>
+                        {on ? (
+                          <span className="absolute -right-1 -top-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[#D4AF37] text-[8px] font-bold text-[#0F172A]">
+                            {order + 1}
+                          </span>
+                        ) : null}
+                      </button>
                     );
                   })}
-                  {r.pageCount > 12 ? (
-                    <span className="text-[10px] text-[#94A3B8]">
-                      +{r.pageCount - 12}
-                    </span>
-                  ) : null}
                 </div>
+                <p className="text-xs text-[#64748B]">
+                  Selected order:{" "}
+                  <span className="font-medium text-[#0F172A]">
+                    {r.pages.length ? r.pages.join(" → ") : "none"}
+                  </span>
+                </p>
               </div>
             ) : null}
           </li>
         ))}
       </ul>
+
+      {rows.length ? (
+        <div
+          className="mt-4 rounded-2xl border border-[#E8E2D6] bg-white p-4"
+          data-testid="page-merge-preview"
+        >
+          <p className="text-xs font-semibold tracking-[0.14em] text-[#C5A880]">
+            MERGE PREVIEW
+          </p>
+          <ol className="mt-2 space-y-1.5 text-sm text-[#0F172A]">
+            {mergePlan.map((r, i) => (
+              <li key={r.id}>
+                <span className="font-semibold text-[#64748B]">{i + 1}.</span>{" "}
+                <span className="font-medium">{r.name}</span>
+                <span className="text-[#64748B]"> — pages </span>
+                <span className="font-semibold">{r.label}</span>
+              </li>
+            ))}
+          </ol>
+          <p className="mt-2 text-xs text-[#64748B]">
+            Total output pages (planned):{" "}
+            <span className="font-semibold text-[#0F172A]">{totalSelected}</span>
+            {result ? (
+              <>
+                {" "}
+                · Merged file:{" "}
+                <span className="font-semibold text-emerald-700">
+                  {resultPages} page{resultPages === 1 ? "" : "s"} ·{" "}
+                  {formatBytes(result.size)}
+                </span>
+              </>
+            ) : null}
+          </p>
+        </div>
+      ) : null}
+
       <div className="mt-4 flex flex-wrap gap-2">
         <Button
-          disabled={busy}
+          disabled={busy || !rows.length}
           onClick={() => void run()}
           className="rounded-full bg-[#0F172A] text-white"
+          data-testid="page-merge-run"
         >
           {busy ? <Loader2 className="animate-spin" /> : null}
           Merge selected pages
